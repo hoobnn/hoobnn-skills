@@ -10,5 +10,11 @@
   "metadata": {
     "pluginRoot": "./plugins"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "git-kit",
+      "source": "git-kit",
+      "description": "Git 工作流相关 skills：gitmoji + commitlint 提交规范落地等。"
+    }
+  ]
 }

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "name": "git-kit",
+  "description": "Git 工作流相关 skills：把 gitmoji + commitlint 提交规范落地到项目等。",
+  "version": "0.1.0",
+  "author": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  }
+}
