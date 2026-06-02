@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "hoobnn-skills",
+  "owner": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  },
+  "description": "hoobnn 的个人 skills / 插件集合",
+  "version": "0.1.0",
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": []
+}
