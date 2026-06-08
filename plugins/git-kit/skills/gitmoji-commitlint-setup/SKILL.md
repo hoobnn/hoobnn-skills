@@ -1,13 +1,14 @@
 ---
 name: gitmoji-commitlint-setup
 description: >-
-  把一套 gitmoji + commitlint 提交规范落地到一个项目里：生成 commitlint.config.js（emoji 与
-  type 强制 1:1 配对、scope 小写、header ≤72 字符）、设置 husky 的 commit-msg 钩子、装好
+  把一套 Conventional Commits + emoji 提交规范落地到一个项目里：生成 commitlint.config.js（标准
+  Conventional type 与 emoji 强制 1:1 配对、scope 小写、header ≤72 字符）、设置 husky 的 commit-msg 钩子、装好
   @commitlint/cli / @commitlint/config-conventional / husky 依赖，让该项目从此强制这套提交风格。
   当用户说「给这个项目配上 gitmoji 提交规范」「装一下 commitlint / commit 校验」「配置 commit
-  message 规范」「上 husky commit-msg 钩子」「想要那种带 emoji 的规范提交」，或在一个还没有提交
-  规范的仓库里要求统一 commit 风格时，都应使用本 skill —— 即使用户没有逐字说出 commitlint 或
-  gitmoji。本 skill 负责「配置落地」，不负责日常生成 commit message。
+  message 规范」「上 husky commit-msg 钩子」「想要那种带 emoji 的规范提交」「不要 emoji 的
+  conventional commits」「配纯 conventional 提交规范」，或在一个还没有提交规范的仓库里要求统一
+  commit 风格时，都应使用本 skill —— 即使用户没有逐字说出 commitlint 或 gitmoji。本 skill 支持
+  带 emoji 与不带 emoji 两种风格、落地时二选一，负责「配置落地」，不负责日常生成 commit message。
 ---
 
 # gitmoji-commitlint-setup
@@ -17,6 +18,13 @@ description: >-
 
 ## 这套规范长什么样
 
+本 skill 支持两种风格，落地时（步骤 0）二选一：
+
+- **带 emoji**（默认，下文详述）：header 形如 `<emoji> <type>(<scope>): <subject>`。
+- **不带 emoji**：标准 Conventional Commits，header 形如 `<type>(<scope>): <subject>`，是上面这套规范去掉 emoji 的等价版——**其余规则完全一致**。
+
+下面以带 emoji 版为主说明；不带 emoji 版只是少了 emoji 前缀与 emoji↔type 配对校验。
+
 提交 header 必须匹配：
 
 ```
@@ -25,37 +33,44 @@ description: >-
 
 强制规则（由 `assets/commitlint.config.js` 实现）：
 
-- **emoji 必须存在，且与 type 1:1 配对**。`🐛 bug(...)`、`✨ sparkles(...)`、`🚚 truck(...)`。配错 emoji 会被拒。
-- `type` 必须是配置中 gitmoji 名称表里的一个（`bug`、`sparkles`、`wrench`、`recycle`、`test-tube`、`zap` 等，完整表见 `assets/commitlint.config.js`）。
+- **emoji 必须存在，且与 type 1:1 配对**。`🐛 fix(...)`、`✨ feat(...)`、`♻️ refactor(...)`。配错 emoji 会被拒。
+- `type` 必须是**标准 Conventional Commits 类型**（`feat`、`fix`、`docs`、`style`、`refactor`、`perf`、`test`、`build`、`ci`、`chore`、`revert`），完整 type↔emoji 表见 `assets/commitlint.config.js`。
 - `scope` 必须**小写**。
 - `subject` 非空；header **≤ 72 字符**。
 - `subject-case` 不限制；body / footer 前应留空行（warning 级）。
 
-常用 emoji ↔ type 速查（全表在 config 里）：
+emoji ↔ type 全表（与 config 1:1 对应）：
 
 | emoji | type | 用途 |
 |------|------|------|
-| ✨ | sparkles | 新功能 |
-| 🐛 | bug | 修 bug |
-| ♻ | recycle | 重构 |
-| ⚡ | zap | 性能 |
-| 📝 | memo | 文档 |
-| 🔧 | wrench | 配置 / 工具 |
-| ✅ | white-check-mark | 测试通过 / 加测试 |
-| 🧪 | test-tube | 加失败的测试 |
-| 💄 | lipstick | UI / 样式 |
-| 🚀 | rocket | 部署 / 发布 |
-| 🚚 | truck | 移动 / 重命名文件 |
-| 🔥 | fire | 删除代码 / 文件 |
-| 🎉 | tada | 初始提交 |
-| 🔖 | bookmark | 版本 tag |
-| 👷 | construction-worker | CI |
+| ✨ | feat | 新功能 |
+| 🐛 | fix | 缺陷修复 |
+| 📝 | docs | 文档 |
+| 🎨 | style | 代码风格 / 格式（不改语义）|
+| ♻️ | refactor | 重构 |
+| ⚡️ | perf | 性能 |
+| ✅ | test | 测试 |
+| 📦️ | build | 构建系统 / 外部依赖 |
+| 👷 | ci | CI 配置与脚本 |
+| 🔧 | chore | 杂务 / 工具 / 配置 |
+| ⏪️ | revert | 回滚提交 |
 
-示例（来自原始项目）：`🐛 bug(ui): close popover when app loses focus`
+示例：`🐛 fix(ui): close popover when app loses focus`
 
 ## 落地流程
 
 按顺序执行。每一步先观察现状再动手——目标项目可能已经部分配置过，不要盲目覆盖用户已有的东西。
+
+### 0. 选择是否启用 emoji
+
+落地前先问用户一次，决定这个项目用哪种风格（二选一，落地后该项目固定此风格）：
+
+- **带 emoji（默认）**：header 为 `<emoji> <type>(<scope>): <subject>`，emoji 与 type 强制 1:1。这是本规范的标志性风格。
+- **不带 emoji**：标准 Conventional Commits，header 为 `<type>(<scope>): <subject>`。
+
+两种风格**除 emoji 外规则完全一致**——type 白名单、scope 小写、subject 非空、header ≤72、body/footer 空行都相同。区别仅在于带不带 emoji 前缀及 emoji↔type 配对校验。
+
+用户没有明确表态时，默认带 emoji（这套规范的初衷）。选定结果会决定第 4 步复制哪个 config 模板、第 6 步用哪组验证用例。
 
 ### 1. 探查目标项目
 
@@ -103,11 +118,17 @@ pnpm add -D @commitlint/cli @commitlint/config-conventional husky
 
 ### 4. 放置 commitlint.config.js
 
-把本 skill 的 `assets/commitlint.config.js` **原样复制**到项目根目录。不要手敲那张 80 多条的 emoji-type 表——照抄模板才能保证和原始规范逐字一致。
+按步骤 0 的选择，把对应模板**原样复制**到项目根目录的 `commitlint.config.js`。不要手敲规则表——照抄模板才能保证和规范逐字一致。
 
 ```bash
-cp <skill 目录>/assets/commitlint.config.js <项目根>/commitlint.config.js
+# 带 emoji（默认）
+cp <skill 目录>/assets/commitlint.config.emoji.js <项目根>/commitlint.config.js
+
+# 不带 emoji
+cp <skill 目录>/assets/commitlint.config.plain.js <项目根>/commitlint.config.js
 ```
+
+无论选哪种，目标项目里始终只有一个干净的 `commitlint.config.js`。
 
 ### 5. 设置 husky 与 commit-msg 钩子
 
@@ -131,21 +152,36 @@ pnpm exec commitlint --edit "$1"
 
 ### 6. 验证（必做，不要跳过）
 
-配置的价值在于「拦得住坏的、放得过好的」。落地后实测两条 message 证明它真的生效：
+配置的价值在于「拦得住坏的、放得过好的」。落地后实测证明它真的生效。**按步骤 0 选的风格选对应一组：**
+
+**带 emoji 版：**
 
 ```bash
 # 应当【通过】
-echo "🐛 bug(core): fix crash on launch" | pnpm exec commitlint
+echo "🐛 fix(core): fix crash on launch" | pnpm exec commitlint
 
-# 应当【被拒】——大写 scope + emoji 与 type 不配
-echo "🐛 sparkles(Core): bad message" | pnpm exec commitlint
+# 应当【被拒】——大写 scope + emoji 与 type 不配（🐛 对应 fix，却写成 feat）
+echo "🐛 feat(Core): bad message" | pnpm exec commitlint
 ```
 
-第一条应无输出（exit 0），第二条应报错（非 0，且能看到 emoji-type 不匹配 / scope 大写的提示）。把结果如实告诉用户。若条件允许，再跑一次真实的 `git commit` 触发钩子端到端确认。
+**不带 emoji 版：**
+
+```bash
+# 应当【通过】
+echo "fix(core): fix crash on launch" | pnpm exec commitlint
+
+# 应当【被拒】——scope 大写
+echo "fix(Core): bad message" | pnpm exec commitlint
+
+# 应当【被拒】——非法 type
+echo "nope: bad message" | pnpm exec commitlint
+```
+
+「应当通过」的应无输出（exit 0），「应当被拒」的应报错（非 0，且能看到对应规则的提示）。把结果如实告诉用户。若条件允许，再跑一次真实的 `git commit` 触发钩子端到端确认。
 
 ## 配置完成后（交接给用户）
 
-- 告诉用户：以后这个项目的提交 header 必须是 `<emoji> <type>(<scope>): <subject>`，否则会被钩子拒绝；完整 emoji-type 表在 `commitlint.config.js` 里。
+- 告诉用户该项目以后的提交 header 格式（按落地时选的风格）：带 emoji 版是 `<emoji> <type>(<scope>): <subject>`（完整 emoji-type 表在 `commitlint.config.js` 里）；不带 emoji 版是 `<type>(<scope>): <subject>`。不合规会被钩子拒绝。
 - 提醒别用 `git commit --no-verify` 绕过钩子——绕过会让规范形同虚设。钩子报错就改 message。
 - **AI 署名**：本 skill 只负责落地规范，是否在 commit 里加入 `Co-Authored-By` / "Generated with Claude Code" 与本配置无关，按各项目自己的约定（如项目 memory 记录）处理，本 skill 不写死。
 
