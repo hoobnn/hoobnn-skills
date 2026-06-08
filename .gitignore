@@ -5,3 +5,6 @@
 .idea/
 .vscode/
 *.swp
+
+# Node（commitlint / husky 工具链）
+node_modules/
