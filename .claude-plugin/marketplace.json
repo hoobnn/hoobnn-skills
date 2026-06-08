@@ -7,13 +7,10 @@
   },
   "description": "hoobnn 的个人 skills / 插件集合",
   "version": "0.1.0",
-  "metadata": {
-    "pluginRoot": "./plugins"
-  },
   "plugins": [
     {
       "name": "git-kit",
-      "source": "git-kit",
+      "source": "./plugins/git-kit",
       "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地（skill），以及 commit / rollback / cleanBranches / worktree 等 Git 命令。"
     }
   ]

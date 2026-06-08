@@ -40,7 +40,7 @@ hoobnn-skills/
 3. 在 `.claude-plugin/marketplace.json` 的 `plugins` 数组追加一项：
 
    ```json
-   { "name": "<plugin-name>", "source": "<plugin-name>", "description": "..." }
+   { "name": "<plugin-name>", "source": "./plugins/<plugin-name>", "description": "..." }
    ```
 
-   （已配置 `pluginRoot: "./plugins"`，`source` 写插件目录名即可。）
+   （`source` 必须是以 `./` 开头、相对于市场根目录的插件路径；裸目录名不被支持。）
