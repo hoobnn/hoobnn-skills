@@ -40,7 +40,7 @@ argument-hint: [--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope
 - `--amend`：在不创建新提交的情况下**修补**上一次提交（保持提交作者与时间，除非本地 Git 配置另有指定）。
 - `--signoff`：附加 `Signed-off-by` 行（遵循 DCO 流程时使用）。
 - `--no-emoji`：产出纯 Conventional 头部（不带 emoji 前缀）。默认带 emoji，与 git-kit 的 commitlint 规范一致。
-- `--scope <scope>`：指定提交作用域（如 `ui`、`docs`、`api`），写入消息头部。
+- `--scope <scope>`：指定提交作用域（如 `ui`、`docs`、`api`），写入消息头部。**必须小写**（commit-msg 钩子强制校验），传入大写将自动转为小写。
 - `--type <type>`：强制提交类型（如 `feat`、`fix`、`docs` 等），覆盖自动判断。
 
 > 注：如框架不支持交互式确认，可在 front-matter 中开启 `confirm: true` 以避免误操作。
@@ -66,6 +66,7 @@ argument-hint: [--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope
 4. **提交信息生成（Conventional 规范，可选 Emoji）**
    - 自动推断 `type`（`feat`/`fix`/`docs`/`style`/`refactor`/`perf`/`test`/`build`/`ci`/`chore`/`revert`）与可选 `scope`。
    - 生成消息头：`<emoji> <type>(<scope>)?: <subject>`（首行 ≤ 72 字符，祈使语气）。默认带 emoji，emoji 与 type **1:1** 配对（见下表）；传入 `--no-emoji` 时省略 emoji，退化为纯 Conventional 头部。
+   - `scope` 必须**小写**（commit-msg 钩子以 error 级强制校验，大写 scope 会被拒）。若用户经 `--scope` 传入大写，自动转为小写。
    - 生成消息体：
      - 必须在 subject 之后空一行。
      - 使用列表格式，每项以 `-` 开头。
@@ -94,7 +95,7 @@ argument-hint: [--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope
 - **先分组再提交**：按目录/模块/功能点拆分。
 - **清晰主题**：首行 ≤ 72 字符，祈使语气。
 - **正文含上下文**：说明动机、方案、影响范围（禁止冒号分隔格式）。
-- **遵循 Conventional Commits + emoji**：`<emoji> <type>(<scope>): <subject>`（emoji 与 type 1:1）。
+- **遵循 Conventional Commits + emoji**：`<emoji> <type>(<scope>): <subject>`（emoji 与 type 1:1，scope 小写）。
 
 ---
 
