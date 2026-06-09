@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "git-kit",
   "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地（skill），以及 commit / rollback / cleanBranches / worktree 等 Git 命令。",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "hoobnn",
     "email": "to192354134@gmail.com"
