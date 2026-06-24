@@ -1,18 +1,17 @@
 ---
-description: 管理 Git worktree，在项目平级的 ../.worktrees/ 目录下创建，支持智能默认、IDE 集成和内容迁移
-allowed-tools: Read(**), Exec(git worktree add, git worktree list, git worktree remove, git worktree prune, git branch, git checkout, git rev-parse, git stash, git cp, detect-ide, open-ide, which, command, basename, dirname)
-argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [-o|--open] [--track] [--guess-remote] [--detach] [--checkout] [--lock] [--migrate-from <source-path>] [--migrate-stash]
+description: 管理 Git worktree，在项目平级的 ../.worktrees/ 目录下创建，支持智能默认和内容迁移
+allowed-tools: Read(**), Exec(git worktree add, git worktree list, git worktree remove, git worktree prune, git branch, git checkout, git rev-parse, git stash, cp, which, command, basename, dirname, pwd)
+argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [--guess-remote] [--detach] [--no-checkout] [--lock] [--from <source-path>] [--stash]
 # examples:
 #   - /git-worktree add feature-ui                     # 从 main/master 创建新分支 'feature-ui'
-#   - /git-worktree add feature-ui -o                  # 创建 worktree 并直接用 IDE 打开
-#   - /git-worktree add hotfix -b fix/login -o         # 创建新分支 'fix/login'，路径为 'hotfix'
+#   - /git-worktree add hotfix -b fix/login            # 创建新分支 'fix/login'，路径为 'hotfix'
 #   - /git-worktree migrate feature-ui --from main     # 将主分支未提交内容迁移到 feature-ui
 #   - /git-worktree migrate feature-ui --stash         # 将当前 stash 迁移到 feature-ui
 ---
 
 # Claude Command: Git Worktree
 
-管理 Git worktree，支持智能默认、IDE 集成和内容迁移，使用结构化的 `../.worktrees/` 路径。
+管理 Git worktree，支持智能默认和内容迁移，使用结构化的 `../.worktrees/` 路径。
 
 直接执行命令并提供简洁结果。
 
@@ -24,7 +23,6 @@ argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [-o|--open] 
 # 基本操作
 /git-worktree add <path>                           # 从 main/master 创建名为 <path> 的新分支
 /git-worktree add <path> -b <branch>               # 创建指定名称的新分支
-/git-worktree add <path> -o                        # 创建并直接用 IDE 打开
 /git-worktree list                                 # 显示所有 worktree 状态
 /git-worktree remove <path>                        # 删除指定的 worktree
 /git-worktree prune                                # 清理无效 worktree 记录
@@ -44,13 +42,12 @@ argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [-o|--open] 
 | `remove <path>`    | 删除指定路径的 worktree                      |
 | `prune`            | 清理无效的 worktree 引用                     |
 | `-b <branch>`      | 创建新分支并检出到 worktree                  |
-| `-o, --open`       | 创建成功后直接用 IDE 打开（跳过询问）        |
 | `--from <source>`  | 指定迁移源路径（migrate 专用）               |
 | `--stash`          | 迁移当前 stash 内容（migrate 专用）          |
 | `--track`          | 设置新分支跟踪对应的远程分支                 |
 | `--guess-remote`   | 自动猜测远程分支进行跟踪                     |
-| `--detach`         | 创建分离 HEAD 的 worktree                    |
-| `--checkout`       | 创建后立即检出（默认行为）                   |
+| `--detach`         | 创建分离 HEAD 的 worktree（与 `-b`/默认建分支互斥）|
+| `--no-checkout`    | 创建后不检出工作区（默认会检出）             |
 | `--lock`           | 创建后锁定 worktree                          |
 
 ---
@@ -92,7 +89,7 @@ ABSOLUTE_WORKTREE_PATH="$WORKTREE_BASE/<path>"
 **关键修复**: 在现有 worktree 内创建新 worktree 时，始终使用绝对路径以防止出现类似 `../.worktrees/.worktrees/path` 的路径嵌套问题。
 
 3. **Worktree 操作**
-   - **add**: 使用智能分支/路径默认创建新 worktree
+   - **add**: 使用智能分支/路径默认创建新 worktree；创建成功后**主动引导切换会话工作目录**（见下文「切换会话工作目录」）
    - **list**: 显示所有 worktree 的分支和状态
    - **remove**: 安全删除 worktree 并清理引用
    - **prune**: 清理孤立的 worktree 记录
@@ -101,7 +98,6 @@ ABSOLUTE_WORKTREE_PATH="$WORKTREE_BASE/<path>"
    - **分支创建**: 未指定 `-b` 时，使用路径名创建新分支
    - **基础分支**: 新分支从 main/master 分支创建
    - **路径解析**: 未指定路径时使用分支名作为路径
-   - **IDE 集成**: 自动检测并提示 IDE 打开
 
 5. **内容迁移**
    - 在 worktree 之间迁移未提交改动
@@ -163,14 +159,38 @@ copy_environment_files() {
 
 ---
 
+## 切换会话工作目录（add 成功后的推荐步骤）
+
+`add` 创建 worktree 之后，**应主动引导用户把当前会话的工作目录切换到新 worktree**，这样后续编辑、运行、提交都直接落在对应分支上，无需用户手动开新会话。
+
+### 关键机制：用 EnterWorktree 的 `path`，而非 Bash 的 `cd`
+
+> `EnterWorktree` / `ExitWorktree` 是 **harness 内置的会话级工具**（同 `Read`/`Edit` 那一类），不是斜杠命令、也不是 skill，由 Claude 在对话主流程里调用、用户无法手动执行。因此它们**不写进本命令的 `allowed-tools`**（那个字段管的是 command 执行期可用的工具）；切换会话目录这一步发生在 `add` 跑完之后、由 Claude 接着完成。
+
+- **`cd` 无法持久切换会话目录**：每次 Bash 调用结束后，harness 会把 shell cwd 重置回原始工作目录（你会看到类似 `Shell cwd was reset to ...` 的提示）。所以 `cd` 只在单条命令内有效，切不动会话。
+- **真正切换靠 `EnterWorktree(path: ...)`**：该工具的 `path` 参数支持「进入一个**已注册到当前仓库**的、已存在的 worktree」。git-kit 在 `../.worktrees/<path>`（项目平级）下是用 `git worktree add` 注册的，该路径已出现在 `git worktree list` 里，因此即便它不在 `.claude/worktrees/` 下，也能通过校验并成功接管，把会话目录切过去。
+
+### 推荐执行流程（由 Claude 自动完成）
+
+1. `add` 成功后，取得新 worktree 的**绝对路径**（即 `ABSOLUTE_WORKTREE_PATH`）。
+2. 调用 `EnterWorktree`，传入该绝对路径：
+
+   ```text
+   EnterWorktree(path: "<MAIN_REPO_PATH>/../.worktrees/<path>")
+   # 例：EnterWorktree(path: "/Users/you/Code/production/.worktrees/feature-ui")
+   ```
+
+3. 用 `pwd && git branch --show-current` 验证已落在新目录与对应分支上。
+
+### 退出时不会误删
+
+因为是用 `path`「进入已存在的 worktree」（而非用 `name` 新建），`ExitWorktree` 不会删除这个 worktree。需要返回原目录时用 `ExitWorktree(action: "keep")` 即可，worktree 原样保留在磁盘上，git-kit 仍可正常 `list` / `remove` 管理它。
+
+> 注意：少数 harness 版本的 `EnterWorktree` 描述声称 `path` 目标必须在 `.claude/worktrees/` 下。实测中 `../.worktrees/` 因已注册进 `git worktree list` 可正常进入；若某版本确实拒绝，则退回到提示用户「在新会话中手动进入该目录」。
+
+---
+
 ## Enhanced Features
-
-### IDE 集成
-
-- **自动检测**: VS Code → Cursor → WebStorm → Sublime Text → Vim
-- **智能提示**: 创建 worktree 后询问是否在 IDE 中打开
-- **直接打开**: 使用 `-o` 标志跳过提示直接打开
-- **自定义配置**: 通过 git config 配置
 
 ### 内容迁移系统
 
@@ -199,7 +219,6 @@ copy_environment_files() {
 # 基本用法
 /git-worktree add feature-ui                       # 从 main/master 创建新分支 'feature-ui'
 /git-worktree add feature-ui -b my-feature         # 创建新分支 'my-feature'，路径为 'feature-ui'
-/git-worktree add feature-ui -o                    # 创建并直接用 IDE 打开
 
 # 内容迁移场景
 /git-worktree add feature-ui -b feature/new-ui     # 创建新功能 worktree
@@ -219,8 +238,6 @@ copy_environment_files() {
 ✅ 已复制 .env
 ✅ 已复制 .env.local
 📋 已从 .gitignore 复制 2 个环境文件
-🖥️ 是否在 IDE 中打开 ../.worktrees/feature-ui？[y/n]: y
-🚀 正在用 VS Code 打开 ../.worktrees/feature-ui...
 ```
 
 ---
@@ -240,34 +257,12 @@ parent-directory/
 
 ---
 
-## Configuration
-
-### IDE 配置
-
-- 支持 VS Code、Cursor、WebStorm、Sublime Text、Vim
-- 通过 git config 配置自定义 IDE
-- 基于优先级的自动检测选择
-
-### 自定义 IDE 设置
-
-```bash
-# 配置自定义 IDE
-git config worktree.ide.custom.sublime "subl %s"
-git config worktree.ide.preferred "sublime"
-
-# 控制自动检测
-git config worktree.ide.autodetect true  # 默认
-```
-
----
-
 ## Notes
 
 - **性能**: worktree 共享 `.git` 目录，节省磁盘空间
 - **安全**: 路径冲突防护和分支检出验证
 - **迁移**: 仅限未提交改动；已提交内容需使用 `git cherry-pick`
-- **IDE 要求**: 命令行工具必须在 PATH 中
-- **跨平台**: 支持 Windows、macOS、Linux
+- **运行环境**: 依赖 bash（macOS、Linux 原生支持；Windows 需 Git Bash / WSL 等 bash 环境）
 - **环境文件**: 自动复制 `.gitignore` 中列出的环境文件到新 worktree
 - **文件排除**: 模板文件如 `.env.example` 仅保留在主仓库中
 
