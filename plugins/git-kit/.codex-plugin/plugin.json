@@ -1,0 +1,33 @@
+{
+  "name": "git-kit",
+  "version": "0.1.2",
+  "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地（skill）。",
+  "author": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  },
+  "repository": "https://github.com/hoobnn/hoobnn-skills",
+  "keywords": [
+    "git",
+    "commitlint",
+    "gitmoji",
+    "conventional-commits",
+    "codex-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Git Kit",
+    "shortDescription": "配置 gitmoji + commitlint 提交规范。",
+    "longDescription": "Git 工作流工具集，目前提供 gitmoji-commitlint-setup skill，可为项目落地 gitmoji 或纯 Conventional Commits 的 commitlint + husky 提交校验。",
+    "developerName": "hoobnn",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "给这个项目配上 gitmoji 提交规范",
+      "配置纯 Conventional Commits 提交校验",
+      "给仓库安装 husky commit-msg 钩子"
+    ]
+  }
+}

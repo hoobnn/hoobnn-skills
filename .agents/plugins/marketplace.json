@@ -1,0 +1,20 @@
+{
+  "name": "hoobnn-skills",
+  "interface": {
+    "displayName": "hoobnn Skills"
+  },
+  "plugins": [
+    {
+      "name": "git-kit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/git-kit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
