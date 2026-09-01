@@ -1,0 +1,72 @@
+# CLAUDE.md
+
+<!-- 本文件与 AGENTS.md 内容保持同步：修改任一份时同步另一份。 -->
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+<!-- AGENTS.md 版此行改为：This file provides guidance to Codex when working with code in this repository. -->
+
+## 项目背景
+
+<比赛全称>「<赛道名>」的参赛仓库。题目机制一句话：<预测什么 / 决策什么 / 输出什么>。
+
+leaderboard 评分公式：`<原文抄录>`。**最终排名只看 <X>，<中间变量> 只是中间产物。**
+
+## 仓库当前状态
+
+- <哪些脚本能跑、哪些是 stub、官方 baseline 修了什么>
+- 新增代码放 `src/`，提交文件放 `submissions/`（最终必须叫 `<官方要求文件名>`）。
+- `data/`、`models/`、`submissions/` 中的产物不要提交 git。
+
+## 数据概况
+
+| 数据集 | 行数 | 范围 | 备注 |
+|--------|------|------|------|
+| <训练集> | | | <缺失情况> |
+| <测试集> | | | <与训练集的列差异> |
+
+## 基线参考指标
+
+- 下界（全零/常数策略）：<分数>
+- 上界（oracle）：<分数>
+- baseline 线上得分：<分数>（<日期>，submitId <id>）
+
+## 开发环境
+
+- Python `>=3.x`，用 **uv** 管理：`uv add <pkg>`、`uv sync`、`uv run python <script>`。
+- <平台特殊依赖，如 macOS 需 brew install libomp>
+
+## 关键约束（容易踩坑）
+
+全文见 `docs/requirements.md`，下面是最容易写错的几条：
+
+- **<硬约束 1，如充放电窗口规则>**
+- **<测试期拿不到的信息>**：任何依赖 <X> 的特征推理时不可用，训练可用推理拿不到即为泄漏。
+- **<异常但合法的数据口径>**：不要当异常剔除。
+- **<外部数据 / 代码审核规则>**
+- **<每日提交次数限制>**
+
+## 提交格式
+
+`<文件名>` 必须严格匹配官方 demo：
+
+- 列名与顺序：`<列清单>`
+- 行数：`<行数公式>`
+- <时间格式 / 编码等细节>
+
+## 主要文档（按优先级）
+
+- `docs/requirements.md` — 数据、约束、评分、提交格式的权威整理。
+- `docs/working-notes.md` — 当前解题思路。
+- `docs/experiment-log.md` — 实验与提交全记录。
+- `docs/faq.md` — 官网 FAQ 重点。
+- `docs/competition-rules.md` — 赛程、组队、晋级、提交次数。
+- `docs/data-files.md`、`docs/source-material.md`、`metadata/` — 数据清单与官网原文备份。
+
+## 本地回测建议
+
+不要只优化 <中间指标>，最终决定排名的是 <评分指标>。同时跟踪：下界、oracle 上界、
+当前方案的捕获率（实际/oracle）。运行回测：`uv run python src/evaluate.py`。
+
+## 代码规范
+
+<git commit 语言约定、lint / test 约定等>

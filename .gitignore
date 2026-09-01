@@ -8,3 +8,4 @@
 
 # Node（commitlint / husky 工具链）
 node_modules/
+__pycache__/

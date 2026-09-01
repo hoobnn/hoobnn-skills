@@ -1,0 +1,33 @@
+{
+  "name": "comp-kit",
+  "version": "0.1.0",
+  "description": "数据竞赛作战工具集：仓库初始化、实验纪律、提交管理、阶段复盘与答辩四个 skill，方法论提炼自完整实战。",
+  "author": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  },
+  "repository": "https://github.com/hoobnn/hoobnn-skills",
+  "keywords": [
+    "competition",
+    "kaggle",
+    "data-science",
+    "experiment-tracking",
+    "codex-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Competition Kit",
+    "shortDescription": "数据竞赛：初始化 / 实验纪律 / 提交管理 / 复盘。",
+    "longDescription": "数据竞赛作战工具集，含四个 skill：comp-init（竞赛仓库初始化与开赛期清单）、comp-experiment（实验纪律与 experiment-log 记录格式）、comp-submit（提交校验、预算与探针策略）、comp-retrospective（阶段复盘与答辩材料）。方法论提炼自完整参赛实战。",
+    "developerName": "hoobnn",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "帮我初始化一个新的比赛项目仓库",
+      "把这次实验记录进 experiment-log",
+      "初赛结束了，帮我写复盘"
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "name": "comp-kit",
+  "description": "数据竞赛作战工具集：仓库初始化（comp-init）、实验纪律（comp-experiment）、提交管理（comp-submit）、阶段复盘与答辩（comp-retrospective），方法论提炼自完整实战。",
+  "version": "0.1.0",
+  "author": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  }
+}
