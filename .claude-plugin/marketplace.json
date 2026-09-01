@@ -6,12 +6,22 @@
     "email": "to192354134@gmail.com"
   },
   "description": "hoobnn 的个人 skills / 插件集合",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "plugins": [
     {
       "name": "git-kit",
       "source": "./plugins/git-kit",
       "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地（skill），以及 commit / rollback / cleanBranches / worktree 等 Git 命令。"
+    },
+    {
+      "name": "comp-kit",
+      "source": "./plugins/comp-kit",
+      "description": "数据竞赛作战工具集：仓库初始化（comp-init）、实验纪律（comp-experiment）、提交管理（comp-submit）、阶段复盘与答辩（comp-retrospective），方法论提炼自完整实战。"
+    },
+    {
+      "name": "math-modeling",
+      "source": "./plugins/math-modeling",
+      "description": "数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流：建模分析、代码实现、论文撰写，含算法资源库、三角色工作细则与论文模板。"
     }
   ]
 }

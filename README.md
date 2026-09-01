@@ -1,7 +1,10 @@
 # hoobnn-skills
 
-hoobnn 的个人 skills / 插件集合，用于分发可复用的 agent skills。目前包含 `git-kit` 插件与
-`gitmoji-commitlint-setup` skill。
+hoobnn 的个人 skills / 插件集合，用于分发可复用的 agent skills。目前包含：
+
+- **git-kit** — Git 工作流工具集：`gitmoji-commitlint-setup` skill 与 commit / rollback / cleanBranches / worktree 等命令。
+- **comp-kit** — 数据竞赛作战工具集：`comp-init`（仓库初始化）、`comp-experiment`（实验纪律）、`comp-submit`（提交管理）、`comp-retrospective`（阶段复盘与答辩）四个 skill 与对应命令，方法论提炼自完整参赛实战。
+- **math-modeling** — 数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流 skill：建模分析 → 代码实现 → 论文撰写，含算法资源库、三角色工作细则与论文模板（基于上游 MIT 开源 skill 瘦身收录）。
 
 ## 使用
 
