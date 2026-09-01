@@ -1,0 +1,33 @@
+{
+  "name": "math-modeling",
+  "version": "0.1.0",
+  "description": "数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流：建模分析、代码实现、论文撰写。",
+  "author": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  },
+  "repository": "https://github.com/hoobnn/hoobnn-skills",
+  "keywords": [
+    "math-modeling",
+    "cumcm",
+    "mcm-icm",
+    "competition",
+    "codex-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Math Modeling",
+    "shortDescription": "数学建模竞赛三阶段工作流。",
+    "longDescription": "为数学建模竞赛（CUMCM、MCM/ICM 等）提供建模分析 → 代码实现 → 论文撰写三阶段协作工作流程，含 7 大类算法资源库、建模手/编程手/论文手三角色工作细则、标准论文模板，并集成 docx / pdf / xlsx / paper_search 文档处理子工具。基于上游 MIT 开源 skill 瘦身收录（不打包优秀论文 PDF）。",
+    "developerName": "hoobnn",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "帮我做这道数学建模题",
+      "分析这道数模题目用什么模型",
+      "帮我写数模论文"
+    ]
+  }
+}

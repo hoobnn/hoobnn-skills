@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "name": "math-modeling",
+  "description": "数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流：建模分析、代码实现、论文撰写，含 7 大类算法资源库、三角色工作细则、论文模板与 docx/pdf/xlsx/paper_search 子工具。",
+  "version": "0.1.0",
+  "author": {
+    "name": "hoobnn",
+    "email": "to192354134@gmail.com"
+  }
+}
