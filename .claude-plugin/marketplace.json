@@ -6,7 +6,7 @@
     "email": "to192354134@gmail.com"
   },
   "description": "hoobnn 的个人 skills / 插件集合",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "plugins": [
     {
       "name": "git-kit",
@@ -21,7 +21,7 @@
     {
       "name": "math-modeling",
       "source": "./plugins/math-modeling",
-      "description": "数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流：建模分析、代码实现、论文撰写，含算法资源库、三角色工作细则与论文模板。"
+      "description": "数学建模竞赛（CUMCM / MCM / ICM）三角色工作流：建模分析、代码实现、论文撰写，含 7 大类算法资源库、三角色工作细则、Subagent 质检门禁，以及 docx / latex / figure / xlsx / pdf / paper_search 六个子工具。"
     }
   ]
 }

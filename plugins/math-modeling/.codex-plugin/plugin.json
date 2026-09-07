@@ -1,7 +1,7 @@
 {
   "name": "math-modeling",
-  "version": "0.1.0",
-  "description": "数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流：建模分析、代码实现、论文撰写。",
+  "version": "0.2.0",
+  "description": "数学建模竞赛（CUMCM / MCM / ICM）三角色工作流：建模分析、代码实现、论文撰写。",
   "author": {
     "name": "hoobnn",
     "email": "to192354134@gmail.com"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Math Modeling",
     "shortDescription": "数学建模竞赛三阶段工作流。",
-    "longDescription": "为数学建模竞赛（CUMCM、MCM/ICM 等）提供建模分析 → 代码实现 → 论文撰写三阶段协作工作流程，含 7 大类算法资源库、建模手/编程手/论文手三角色工作细则、标准论文模板，并集成 docx / pdf / xlsx / paper_search 文档处理子工具。基于上游 MIT 开源 skill 瘦身收录（不打包优秀论文 PDF）。",
+    "longDescription": "为数学建模竞赛（CUMCM、MCM/ICM 等）提供建模分析 → 代码实现 → 论文撰写三角色协作工作流程，含 7 大类算法资源库、建模手/编程手/论文手三角色工作细则、Subagent 阶段质检门禁、出版级科研可视化，并集成 docx / latex / figure / xlsx / pdf / paper_search 六个子工具。基于上游 MIT 开源 skill 收录（只打包技能本体，见 skills/math-modeling/README.md）。",
     "developerName": "hoobnn",
     "category": "Productivity",
     "capabilities": [

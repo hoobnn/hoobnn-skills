@@ -1,197 +1,38 @@
 ---
-name: "paper-search"
-description: "Search academic papers via OpenAlex API for math modeling references. Invoke when user needs literature search, paper references, or when writing papers requires citations."
+name: 双引擎论文搜索
+description: 使用 OpenAlex 与 AnySearch 两个真实数据源并行搜索、交叉匹配和输出可追溯论文元数据。
 ---
 
-# Paper Search Skill - 论文搜索技能
+# 双引擎论文搜索
 
-本技能通过 **OpenAlex API** 实现学术论文搜索功能，为数学建模论文撰写提供参考文献支持。
+## 数据源
 
----
+- OpenAlex：结构化学术元数据。
+- AnySearch Academic：学术垂直搜索，支持当前 MCP Markdown 响应解析。
 
-## 功能概述
+默认并行调用两个引擎。DOI 相同的记录直接交叉验证；无 DOI 时仅在标题高度相似且年份相容时合并。同一引擎中标题规范化后相同的预印本与正式出版记录也会折叠，并优先保留引用信息和元数据更完整的记录。交叉匹配结果、OpenAlex 独有结果和 AnySearch 独有结果分开输出。
 
-| 功能 | 说明 |
-|------|------|
-| **论文搜索** | 通过关键词搜索相关学术论文 |
-| **摘要获取** | 自动重建并返回论文摘要 |
-| **引用格式化** | 生成标准的引用格式 |
-| **多字段搜索** | 支持标题、摘要、作者等多字段搜索 |
+融合时按查询词覆盖率过滤和重排，相关性优先于引用量，避免高被引但主题无关的论文挤占结果。包含多个专业术语时，候选文献至少命中两个有效查询词；这一阈值兼顾缺少摘要的元数据，不能代替人工核验。物理、材料和光学主题应组合使用材料名、机理名与模型名，例如 `Sellmeier 4H-SiC Fabry-Perot`；结果过少时逐步放宽查询，不直接接受无关结果。
 
----
+## 使用
 
-## 使用场景
-
-在以下情况下使用本技能：
-
-1. **建模分析阶段**：查找模型相关的理论文献
-2. **论文撰写阶段**：为论文添加参考文献引用
-3. **算法验证阶段**：查找算法的原始论文
-4. **用户请求**：用户明确要求搜索论文或文献
-
----
-
-## 配置要求
-
-### 邮箱配置（必需）
-
-OpenAlex API 要求提供邮箱地址以使用礼貌池（Polite Pool）：
-
-```
-使用前必须配置邮箱地址：
-- 用于礼貌池访问，提高API限制
-- 必须是有效的邮箱地址
+```powershell
+python scripts/hybrid_scholar.py --query "robust optimization vehicle routing" --limit 10 --json
 ```
 
----
+如 AnySearch 需要鉴权：
 
-## 搜索流程
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      论文手/建模手                           │
-│  (需要引用文献时调用搜索工具)                                 │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ 调用 search_papers
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 openalex_scholar.py                         │
-│  (论文搜索脚本 - 封装 OpenAlex API 调用)                     │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ HTTP GET 请求
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              OpenAlex API (https://api.openalex.org)        │
-│  - 免费学术搜索引擎                                         │
-│  - 支持论文标题、摘要、作者、引用次数等字段                  │
-└─────────────────────────────────────────────────────────────┘
+```powershell
+$env:ANYSEARCH_API_KEY = "<密钥>"
+python scripts/hybrid_scholar.py --query "analytic hierarchy process" --limit 8
 ```
 
----
+诊断单个引擎时可用 `--openalex-only` 或 `--anysearch-only`；正式文献检索默认不得只运行一个引擎。
 
-## 使用方法
+## 核验规则
 
-### 方法一：运行搜索脚本
-
-```bash
-python tools/paper_search/scripts/openalex_scholar.py --query "grey prediction model" --email "your@email.com"
-```
-
-### 方法二：在代码中调用
-
-```python
-from openalex_scholar import OpenAlexScholar
-
-scholar = OpenAlexScholar(email="your@email.com")
-papers = scholar.search_papers("linear programming optimization")
-
-for paper in papers:
-    print(f"标题: {paper.title}")
-    print(f"作者: {', '.join(paper.authors)}")
-    print(f"年份: {paper.publication_year}")
-    print(f"引用: {paper.citation_format}")
-    print(f"DOI: {paper.doi}")
-    print("---")
-```
-
-### 方法三：获取字典格式数据
-
-```python
-from openalex_scholar import OpenAlexScholar
-
-scholar = OpenAlexScholar(email="your@email.com")
-papers = scholar.search_papers("linear programming optimization")
-
-for paper in papers:
-    paper_dict = paper.to_dict()
-    print(f"标题: {paper_dict['title']}")
-    print(f"作者: {paper_dict['authors']}")
-    print(f"年份: {paper_dict['publication_year']}")
-    print(f"引用: {paper_dict['citation_format']}")
-    print("---")
-```
-
----
-
-## 返回字段说明
-
-### Paper 对象属性
-
-| 属性 | 类型 | 说明 |
-|------|------|------|
-| `title` | str | 论文标题 |
-| `abstract` | str/None | 摘要（从倒排索引重建） |
-| `authors` | List[str] | 作者列表 |
-| `cited_by_count` | int | 被引用次数 |
-| `doi` | str/None | DOI 标识符 |
-| `publication_year` | int/None | 发表年份 |
-
-### Paper 对象方法
-
-| 方法 | 返回值 | 说明 |
-|------|--------|------|
-| `citation_format` | str | 格式化引用文本（APA风格） |
-| `to_dict()` | Dict | 转换为字典格式，包含所有字段和citation_format |
-
----
-
-## 引用格式示例
-
-```
-Smith J. et al. (2020). A Novel Approach to Grey Prediction Models. 
-DOI: 10.1016/j.example.2020.123456
-```
-
----
-
-## API 限制与最佳实践
-
-| 项目 | 说明 |
-|------|------|
-| **速率限制** | 使用礼貌池(polite pool)可提高限制 |
-| **必需参数** | 必须提供 `mailto` 邮箱参数 |
-| **返回数量** | 默认返回 8 篇相关论文 |
-| **搜索字段** | 支持标题、摘要、作者等多字段搜索 |
-
----
-
-## 数学建模常用搜索关键词
-
-### 优化算法
-- `linear programming optimization`
-- `genetic algorithm optimization`
-- `particle swarm optimization`
-- `simulated annealing`
-
-### 预测模型
-- `grey prediction model GM(1,1)`
-- `ARIMA time series forecasting`
-- `LSTM neural network prediction`
-- `prophet forecasting`
-
-### 评价方法
-- `analytic hierarchy process AHP`
-- `TOPSIS multi-criteria decision`
-- `entropy weight method`
-- `data envelopment analysis DEA`
-
-### 图论与网络
-- `shortest path algorithm Dijkstra`
-- `minimum spanning tree`
-- `maximum flow network`
-- `vehicle routing problem`
-
----
-
-## 相关文件
-
-| 文件 | 说明 |
-|------|------|
-| `scripts/openalex_scholar.py` | OpenAlex 搜索实现脚本 |
-
----
-
-## 参考链接
-
-- [OpenAlex API 文档](https://docs.openalex.org/)
-- [OpenAlex 礼貌池规则](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication)
+1. 搜索结果只用于发现候选文献。
+2. 引用前打开 DOI 或出版机构页面核对作者、题名、年份、期刊/会议、卷期页。
+3. 不把引用量当作正确性的证明。
+4. 不根据标题或摘要编造不存在的结论。
+5. 输出中保留 `sources` 和 `cross_validated` 状态。
