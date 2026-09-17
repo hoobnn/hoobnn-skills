@@ -1,6 +1,6 @@
 {
   "name": "git-kit",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地（skill）。",
   "author": {
     "name": "hoobnn",
