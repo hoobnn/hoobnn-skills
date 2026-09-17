@@ -33,7 +33,7 @@ ANCHOR = {
     "cost_metric": 0.0,                            # 否决门看的代价侧指标（如稀有类 F1），越大越好
 }
 
-STEP_RESOLUTION = 0.0        # 单步分辨率：翻 1 个预测单元线上变多少（comp-init 标定）
+STEP_RESOLUTION = 0.0        # 单步分辨率：翻 1 个预测单元线上变多少（step_resolution.py 标定）
 MIN_GAIN = 3 * STEP_RESOLUTION          # 主门：同口径 dev 增益 ≥ 3 步
 MIN_EXPOSURE = 20                       # 暴露度门：相对锚点改动单元数 ≥ 此值
 COST_UNIT_SENSITIVITY = 0.0             # 代价侧单例敏感度；否决门允许恶化 ≤ 1 个等效实例
@@ -46,13 +46,15 @@ BOTTLENECK_TOLERANCE = 0.0              # 瓶颈维度允许的恶化量（通�
 
 def measure_dev(cand_dev_path: Path) -> dict:
     """返回 {"dev_metric": float, "bottleneck_metric": float, "cost_metric": float,
-    "ci_low": float | None}。ci_low 为按来源组配对 bootstrap 的 2.5 百分位（相对锚点）。"""
+    "ci_low": float | None}。ci_low 为按来源组配对 bootstrap 的 2.5 百分位（相对锚点），
+    可直接调 comp-experiment 的 paired_bootstrap.py（--out 的 JSON 里就是 ci_low）。"""
     raise NotImplementedError("按比赛实现：读候选 dev 预测，用官方评测口径算三个读数")
 
 
 def measure_exposure(cand_pkg: Path, anchor_pkg: Path) -> dict:
     """返回 {"changed": int, "total": int, "flows": {"a->b": n, ...}}。
-    changed 是相对线上锚点改动的预测单元数；flows 为流向分解（可选）。"""
+    changed 是相对线上锚点改动的预测单元数；flows 为流向分解（可选）。
+    comp-experiment 的 exposure.py --out 输出的 JSON 与此约定一致，可直接读入。"""
     raise NotImplementedError("按比赛实现：逐单元对比候选包与锚点包")
 
 

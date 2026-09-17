@@ -1,6 +1,6 @@
 {
   "name": "comp-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "数据竞赛作战工具集：仓库初始化、实验纪律、提交管理、阶段复盘与答辩、多赛题并行总控五个 skill，方法论提炼自两轮完整实战。",
   "author": {
     "name": "hoobnn",
