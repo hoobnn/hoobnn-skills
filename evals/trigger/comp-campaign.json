@@ -1,0 +1,82 @@
+[
+ {
+  "query": "同时参加了四个比赛，帮我做个总控看板",
+  "should_trigger": true
+ },
+ {
+  "query": "今天各题额度怎么分，A 题明天截止 B 题还有一周",
+  "should_trigger": true
+ },
+ {
+  "query": "派子代理跑这三题，纪律怎么定，提交权归谁",
+  "should_trigger": true
+ },
+ {
+  "query": "守夜脚本怎么写，训练在远程 WSL 上跑，要判活",
+  "should_trigger": true
+ },
+ {
+  "query": "训练机重启了，怎么办，先查什么",
+  "should_trigger": true
+ },
+ {
+  "query": "哪题该放弃？跟榜首差了一个数量级而且最先截止",
+  "should_trigger": true
+ },
+ {
+  "query": "四个代理一起跑撞限流了，怎么轮转",
+  "should_trigger": true
+ },
+ {
+  "query": "远程 GPU 三个题共用，怎么仲裁显存和并发",
+  "should_trigger": true
+ },
+ {
+  "query": "帮我写 STATUS.md 的今晨快报，昨夜出了两个分",
+  "should_trigger": true
+ },
+ {
+  "query": "launchd 的守夜脚本 20 小时没干活，看看怎么回事",
+  "should_trigger": true
+ },
+ {
+  "query": "记录一下这次实验",
+  "should_trigger": false
+ },
+ {
+  "query": "准备提交，帮我检查文件格式",
+  "should_trigger": false
+ },
+ {
+  "query": "新开一个比赛项目",
+  "should_trigger": false
+ },
+ {
+  "query": "初赛复盘写一下",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我配一个 cron 每天凌晨备份数据库",
+  "should_trigger": false
+ },
+ {
+  "query": "写个 kubernetes 的 GPU 调度策略",
+  "should_trigger": false
+ },
+ {
+  "query": "用 claude agent sdk 写一个多 agent 客服系统",
+  "should_trigger": false
+ },
+ {
+  "query": "nvidia-smi 显示显存占满了但没进程，怎么回事",
+  "should_trigger": false
+ },
+ {
+  "query": "做个项目管理看板，jira 那种",
+  "should_trigger": false
+ },
+ {
+  "query": "训练 loss 不下降怎么办",
+  "should_trigger": false
+ }
+]

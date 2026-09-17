@@ -1,0 +1,82 @@
+[
+ {
+  "query": "试一下把 lag7 和 rolling mean 特征加进去，看 OOF 会不会涨",
+  "should_trigger": true
+ },
+ {
+  "query": "本地 cv 从 0.8734 涨到 0.8791 了，线上会涨吗？",
+  "should_trigger": true
+ },
+ {
+  "query": "这个 flip TTA 线上只差了 0.003，算不算证伪？测试集 141 段",
+  "should_trigger": true
+ },
+ {
+  "query": "帮我写一下这次 sam 精修实验的门禁判据，开跑前登记进 experiment-log",
+  "should_trigger": true
+ },
+ {
+  "query": "为什么离线好线上差？dev 上 +0.02，线上反而 -0.005",
+  "should_trigger": true
+ },
+ {
+  "query": "记录一下这次实验：换了 convnext_tiny，seed 42，5 折，oof 0.91，产物在 submissions/v7",
+  "should_trigger": true
+ },
+ {
+  "query": "验证「按视频分组切折」这个假设，帮我做个 verify 脚本",
+  "should_trigger": true
+ },
+ {
+  "query": "折怎么切？这些图片好像有很多是同一张底图的增强副本",
+  "should_trigger": true
+ },
+ {
+  "query": "连续四个方向在 cracked 类上都是 TP 涨一点 FP 涨一堆，是不是该停下来看看",
+  "should_trigger": true
+ },
+ {
+  "query": "给我算一下这个比赛翻一个样本线上分数会动多少，900 张图 F1",
+  "should_trigger": true
+ },
+ {
+  "query": "今天几次提交怎么安排，还剩 3 发",
+  "should_trigger": false
+ },
+ {
+  "query": "准备提交前帮我检查一下 output.csv 的列名和行数对不对",
+  "should_trigger": false
+ },
+ {
+  "query": "初赛复盘写一下，哪些方法下阶段还能用",
+  "should_trigger": false
+ },
+ {
+  "query": "新开一个比赛项目仓库，天池的",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我在 pytorch 训练脚本里加一个 EMA，代码在 src/train.py",
+  "should_trigger": false
+ },
+ {
+  "query": "这个 lightgbm 的 num_leaves 和 learning_rate 一般设多少",
+  "should_trigger": false
+ },
+ {
+  "query": "跑一下 pytest 看看单元测试过不过",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我做网站改版的 A/B 测试显著性分析，转化率数据在 ab.csv",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我用 mlflow 把训练指标和参数记录下来",
+  "should_trigger": false
+ },
+ {
+  "query": "同时跑三个比赛，怎么派子代理和分配 GPU",
+  "should_trigger": false
+ }
+]

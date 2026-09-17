@@ -1,0 +1,82 @@
+[
+ {
+  "query": "准备提交了，帮我检查 submissions/v3/output.csv 格式对不对，官方 demo 在 metadata/",
+  "should_trigger": true
+ },
+ {
+  "query": "今天还剩两次提交，一个探针一个冲榜怎么安排",
+  "should_trigger": true
+ },
+ {
+  "query": "这发投成功了吗？页面上没看到记录但额度好像减了一次",
+  "should_trigger": true
+ },
+ {
+  "query": "B 榜的 solution.zip 冻结包怎么准备，什么时候登记 sha",
+  "should_trigger": true
+ },
+ {
+  "query": "打个探针看 threshold 0.35 线上怎么样，帮我预登记判读",
+  "should_trigger": true
+ },
+ {
+  "query": "复赛管道要不要先用初赛的旧文件复现一下分数再投新的",
+  "should_trigger": true
+ },
+ {
+  "query": "规则允许两个账号，换了个账号提交先投什么",
+  "should_trigger": true
+ },
+ {
+  "query": "线上只有 3 个数据点，能不能拟合一下离线到线上的位移",
+  "should_trigger": true
+ },
+ {
+  "query": "提交前算一下 sha256 和字节数留痕，写进日志",
+  "should_trigger": true
+ },
+ {
+  "query": "生成这发的提交回执：额度 3→2，回读一致，sha 前缀 9f3a",
+  "should_trigger": true
+ },
+ {
+  "query": "记录一下这次实验的方法、配置和 OOF",
+  "should_trigger": false
+ },
+ {
+  "query": "折怎么切才不泄漏，图片有增强副本",
+  "should_trigger": false
+ },
+ {
+  "query": "初赛结束了写个复盘",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我 git push 到远程并开一个 PR",
+  "should_trigger": false
+ },
+ {
+  "query": "提交作业到 gradescope 之前帮我检查一下代码风格",
+  "should_trigger": false
+ },
+ {
+  "query": "把这个 pr 的 commit message 按 conventional 规范改一下",
+  "should_trigger": false
+ },
+ {
+  "query": "新开一个 kaggle 比赛仓库",
+  "should_trigger": false
+ },
+ {
+  "query": "同时参加的四个比赛，今天各题额度怎么分、哪题优先",
+  "should_trigger": false
+ },
+ {
+  "query": "写个脚本把模型预测结果存成 csv",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我把模型导出成 onnx 交给部署同学",
+  "should_trigger": false
+ }
+]

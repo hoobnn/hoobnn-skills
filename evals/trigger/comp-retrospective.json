@@ -1,0 +1,82 @@
+[
+ {
+  "query": "初赛结束了，帮我写个复盘",
+  "should_trigger": true
+ },
+ {
+  "query": "复赛开始前把初赛的经验整理一下，哪些结论下一阶段还能用",
+  "should_trigger": true
+ },
+ {
+  "query": "晋级决赛了，准备答辩，帮我组织材料和 QA 弹药",
+  "should_trigger": true
+ },
+ {
+  "query": "这一周没新高了，把这几天的教训沉淀一下别再惯性消耗",
+  "should_trigger": true
+ },
+ {
+  "query": "从 experiment-log 提炼一下证伪清单，下阶段别重走死路",
+  "should_trigger": true
+ },
+ {
+  "query": "做个离线线上标定库看看这题的兑现率",
+  "should_trigger": true
+ },
+ {
+  "query": "答辩 PPT 内容怎么组织，分数轨迹和证伪记录放哪",
+  "should_trigger": true
+ },
+ {
+  "query": "赛后总结一下，哪些脚本下场比赛能直接复用",
+  "should_trigger": true
+ },
+ {
+  "query": "把三个比赛的跨题规律沉淀到工作区的 METHODOLOGY.md",
+  "should_trigger": true
+ },
+ {
+  "query": "给复盘文档补上下一阶段作战计划和冻结死线",
+  "should_trigger": true
+ },
+ {
+  "query": "记录一下今天这次实验",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我写这个季度的工作总结",
+  "should_trigger": false
+ },
+ {
+  "query": "把上周 sprint retrospective 的会议纪要整理一下",
+  "should_trigger": false
+ },
+ {
+  "query": "新开一个比赛仓库",
+  "should_trigger": false
+ },
+ {
+  "query": "今天几次提交怎么安排",
+  "should_trigger": false
+ },
+ {
+  "query": "把 docs/experiment-log.md 里的表格格式修一下，列对不齐",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我做数学建模论文的答辩 PPT",
+  "should_trigger": false
+ },
+ {
+  "query": "写一篇介绍我们比赛方案的技术博客发知乎",
+  "should_trigger": false
+ },
+ {
+  "query": "跑一下这个实验的 OOF 看看",
+  "should_trigger": false
+ },
+ {
+  "query": "把 archive 目录里的旧脚本删掉",
+  "should_trigger": false
+ }
+]

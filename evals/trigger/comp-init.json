@@ -1,0 +1,82 @@
+[
+ {
+  "query": "我报了天池的一个新比赛「电力负荷预测」，帮我把参赛仓库搭起来，官网规则我存在 ~/Downloads/tianchi_rules.pdf",
+  "should_trigger": true
+ },
+ {
+  "query": "新开一个 kaggle 比赛项目，playground s5e9，要按我们那套 docs/ 知识库的结构来",
+  "should_trigger": true
+ },
+ {
+  "query": "刚拿到 datafountain 的数据，先把 CLAUDE.md 和 AGENTS.md 写出来，评分是 macro f1，每天 3 次提交",
+  "should_trigger": true
+ },
+ {
+  "query": "帮我把比赛官网的题目描述、评分说明和 FAQ 存档进 metadata/ 并整理成 requirements.md",
+  "should_trigger": true
+ },
+ {
+  "query": "参加讯飞的一个语音增强赛，帮我初始化参赛仓库，用 uv 管环境",
+  "should_trigger": true
+ },
+ {
+  "query": "比赛还没开始建模，先把验证协议和上下界定下来，数据在 data/raw，好像有很多增强副本",
+  "should_trigger": true
+ },
+ {
+  "query": "开赛第一天要做哪些事？帮我按清单过一遍这个 AI4S 比赛的仓库，现在只有一个 baseline.py",
+  "should_trigger": true
+ },
+ {
+  "query": "这个比赛仓库是同事搭的，缺 docs 知识库和门禁脚本，帮我补齐到标准布局",
+  "should_trigger": true
+ },
+ {
+  "query": "帮我算一下这个比赛的常数策略下界和 oracle 上界，然后交第一发验证管道",
+  "should_trigger": true
+ },
+ {
+  "query": "把 check_submission.py 和 gate_candidate.py 脚手架拷进 src 并按这个比赛的提交格式填好 MANIFEST",
+  "should_trigger": true
+ },
+ {
+  "query": "帮我记录一下今天这次实验，OOF 从 0.812 涨到 0.819，换了 lr",
+  "should_trigger": false
+ },
+ {
+  "query": "今天还剩 2 次提交，怎么安排比较好",
+  "should_trigger": false
+ },
+ {
+  "query": "初赛结束了，帮我写个复盘",
+  "should_trigger": false
+ },
+ {
+  "query": "给这个项目配上 gitmoji 提交规范",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我新建一个 fastapi 项目骨架，带 docker-compose 和 pytest",
+  "should_trigger": false
+ },
+ {
+  "query": "写一个 README 说明怎么用 uv 装依赖跑训练",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我做数学建模竞赛 B 题的题目分析和模型选择",
+  "should_trigger": false
+ },
+ {
+  "query": "把 kaggle 的 titanic 数据集用 kaggle api 下载到本地并解压",
+  "should_trigger": false
+ },
+ {
+  "query": "同时参加了三个比赛，帮我搭个总控看板管各题进度",
+  "should_trigger": false
+ },
+ {
+  "query": "训练脚本 OOM 了，帮我看看 dataloader 哪里内存泄漏",
+  "should_trigger": false
+ }
+]

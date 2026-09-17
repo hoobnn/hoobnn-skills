@@ -1,0 +1,82 @@
+[
+ {
+  "query": "给这个项目配上 gitmoji 提交规范",
+  "should_trigger": true
+ },
+ {
+  "query": "装一下 commitlint，要 husky 钩子拦不合规的 message",
+  "should_trigger": true
+ },
+ {
+  "query": "这个 swift 项目没有 package.json，也想要 commit message 校验",
+  "should_trigger": true
+ },
+ {
+  "query": "配纯 conventional commits 规范，不要 emoji",
+  "should_trigger": true
+ },
+ {
+  "query": "团队 commit 太乱了，帮我统一一下提交风格并强制校验",
+  "should_trigger": true
+ },
+ {
+  "query": "上一个 commit-msg 钩子",
+  "should_trigger": true
+ },
+ {
+  "query": "想要那种带 emoji 的规范提交，配一下",
+  "should_trigger": true
+ },
+ {
+  "query": "把我们那套 commitlint 配置搬到这个新仓库",
+  "should_trigger": true
+ },
+ {
+  "query": "husky 装了钩子没生效，commit 还是能随便写",
+  "should_trigger": true
+ },
+ {
+  "query": "monorepo 里 commitlint 配置该放哪",
+  "should_trigger": true
+ },
+ {
+  "query": "帮我提交这次改动，写个 commit message",
+  "should_trigger": false
+ },
+ {
+  "query": "生成一个 conventional commit 信息，改动是修了登录 bug",
+  "should_trigger": false
+ },
+ {
+  "query": "配 eslint 和 prettier",
+  "should_trigger": false
+ },
+ {
+  "query": "加个 pre-commit 钩子跑 pytest",
+  "should_trigger": false
+ },
+ {
+  "query": "用 python 的 pre-commit 框架配 black 和 isort",
+  "should_trigger": false
+ },
+ {
+  "query": "帮我根据 git log 写 CHANGELOG",
+  "should_trigger": false
+ },
+ {
+  "query": "git rebase 把最近三个 commit 合并成一个",
+  "should_trigger": false
+ },
+ {
+  "query": "配 github actions 跑测试",
+  "should_trigger": false
+ },
+ {
+  "query": "把上一个 commit message 里的 emoji 删掉",
+  "should_trigger": false
+ },
+ {
+  "query": "给仓库加一个 python 的 .gitignore",
+  "should_trigger": false
+ }
+]
