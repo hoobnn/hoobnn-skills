@@ -1,7 +1,7 @@
 {
   "name": "comp-kit",
-  "version": "0.1.1",
-  "description": "数据竞赛作战工具集：仓库初始化、实验纪律、提交管理、阶段复盘与答辩四个 skill，方法论提炼自完整实战。",
+  "version": "0.2.0",
+  "description": "数据竞赛作战工具集：仓库初始化、实验纪律、提交管理、阶段复盘与答辩、多赛题并行总控五个 skill，方法论提炼自两轮完整实战。",
   "author": {
     "name": "hoobnn",
     "email": "to192354134@gmail.com"
@@ -12,13 +12,15 @@
     "kaggle",
     "data-science",
     "experiment-tracking",
+    "submission-gate",
+    "multi-agent",
     "codex-skill"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Competition Kit",
-    "shortDescription": "数据竞赛：初始化 / 实验纪律 / 提交管理 / 复盘。",
-    "longDescription": "数据竞赛作战工具集，含四个 skill：comp-init（竞赛仓库初始化与开赛期清单）、comp-experiment（实验纪律与 experiment-log 记录格式）、comp-submit（提交校验、预算与探针策略）、comp-retrospective（阶段复盘与答辩材料）。方法论提炼自完整参赛实战。",
+    "shortDescription": "数据竞赛：初始化 / 实验纪律 / 提交管理 / 复盘 / 多赛题总控。",
+    "longDescription": "数据竞赛作战工具集，含五个 skill：comp-init（竞赛仓库初始化、验证协议与上下界 / 单步分辨率标定）、comp-experiment（单变量、同口径、预登记门禁、零成本诊断、experiment-log 格式）、comp-submit（校验器与准入门禁、三层提交证据、回执、B 榜冻结）、comp-retrospective（阶段复盘、标定库、答辩材料）、comp-campaign（多赛题并行总控、子代理纪律、资源仲裁、守夜）。方法论提炼自时间序列决策赛与七题并行 CV / 语音赛。",
     "developerName": "hoobnn",
     "category": "Productivity",
     "capabilities": [
@@ -26,7 +28,9 @@
     ],
     "defaultPrompt": [
       "帮我初始化一个新的比赛项目仓库",
+      "这个实验开跑前帮我预登记门禁判据",
       "把这次实验记录进 experiment-log",
+      "同时参加的几个比赛今天额度怎么安排",
       "初赛结束了，帮我写复盘"
     ]
   }

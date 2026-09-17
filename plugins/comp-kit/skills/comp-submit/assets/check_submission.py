@@ -18,7 +18,10 @@
 
     - 所有校验脚本化，不靠肉眼；任一 FAIL 退出码为 1，可挂 pre-submit hook / CI。
     - 全量断言而非抽查：合法性规则逐组检查，输出 `59/59 组合法` 这类全量结论。
-    - 校验通过后输出产物指纹（MD5 / 体积）与 experiment-log 粘贴块，产物不入 git、指纹留痕。
+    - 校验通过后输出产物指纹（SHA-256 / 精确字节数 / MD5）与 experiment-log 粘贴块，
+      产物不入 git、指纹留痕。冻结登记与平台回读比对用 SHA-256 + 字节数。
+    - `--expect-sha256`：与已登记或回读到的指纹比对，不一致即 FAIL。
+    - 格式通过 ≠ 可以投：值不值得消耗额度由 gate_candidate.py 决定。
 """
 
 from __future__ import annotations
@@ -193,19 +196,33 @@ class Artifact:
     def total_size(self) -> int:
         return sum(self.size(n) for n in self.names())
 
-    def md5(self) -> str:
-        h = hashlib.md5()
+    def digest(self, algo: str) -> str:
+        """提交物指纹。单文件按字节 hash；目录按名字序对每个条目内容做链式 hash。
+
+        冻结登记与平台回读比对用 sha256 + 精确字节数；md5 仅为兼容旧日志。
+        """
+        h = hashlib.new(algo)
         if self.path.is_file():
             with open(self.path, "rb") as f:
                 for chunk in iter(lambda: f.read(1 << 20), b""):
                     h.update(chunk)
-        else:  # 目录：按名字序对每个条目内容做链式 hash
+        else:
             for n in sorted(self.names()):
                 h.update(n.encode())
                 with self.open(n) as f:
                     for chunk in iter(lambda: f.read(1 << 20), b""):
                         h.update(chunk)
         return h.hexdigest()
+
+    def md5(self) -> str:
+        return self.digest("md5")
+
+    def sha256(self) -> str:
+        return self.digest("sha256")
+
+    def artifact_bytes(self) -> int:
+        """提交物本身的字节数（ZIP 是压缩包大小，目录是条目总和）。"""
+        return self.path.stat().st_size if self.path.is_file() else self.total_size()
 
     @staticmethod
     def load(path: Path, kind: str) -> "Artifact":
@@ -375,6 +392,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="提交物校验（comp-kit）")
     ap.add_argument("file", type=Path, help="待校验的提交物（文件 / 目录 / zip）")
     ap.add_argument("--log-snippet", action="store_true", help="输出 experiment-log 粘贴块")
+    ap.add_argument(
+        "--expect-sha256",
+        default=None,
+        help="与已登记 / 平台回读的 SHA-256 比对，不一致则 FAIL（冻结包复核、回读校验用）",
+    )
     args = ap.parse_args()
     path: Path = args.file
 
@@ -393,13 +415,21 @@ def main() -> int:
         print("存在 FAIL：禁止提交。")
         return 1
 
-    digest = art.md5()
-    size = art.total_size()
-    print(f"MD5  {digest}")
-    print(f"体积 {size:,} bytes")
+    sha = art.sha256()
+    md5 = art.md5()
+    nbytes = art.artifact_bytes()
+    print(f"SHA256 {sha}")
+    print(f"BYTES  {nbytes:,}")
+    print(f"MD5    {md5}")
+    if args.expect_sha256 and args.expect_sha256.lower() != sha:
+        print(f"[FAIL] 指纹不匹配 — 期望 {args.expect_sha256}")
+        return 1
     if args.log_snippet:
         print("\n----- experiment-log 粘贴块 -----")
-        print(f"- 产物：`{path}`，{len(runner.results)} 项校验全部通过，MD5 `{digest}`。")
+        print(
+            f"- 产物：`{path}`，{len(runner.results)} 项校验全部通过，"
+            f"SHA-256 `{sha}`，{nbytes:,} B，MD5 `{md5}`。"
+        )
     return 0
 
 

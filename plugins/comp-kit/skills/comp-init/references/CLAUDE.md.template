@@ -1,72 +1,105 @@
 # CLAUDE.md
 
-<!-- 本文件与 AGENTS.md 内容保持同步：修改任一份时同步另一份。 -->
+<!-- 本文件与 AGENTS.md 内容保持同步：修改任一份时同步另一份，但保留下一行「Claude Code / Codex」的措辞差异。 -->
+<!-- 入口文件纪律：约束性规则写在这里；改动纯增量并 git diff 逐行确认；不引用会漂移的章节号，用脚本路径 + 判据数值。 -->
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 <!-- AGENTS.md 版此行改为：This file provides guidance to Codex when working with code in this repository. -->
 
 ## 项目背景
 
-<比赛全称>「<赛道名>」的参赛仓库。题目机制一句话：<预测什么 / 决策什么 / 输出什么>。
+<比赛全称>「<赛道名>」（slug `<slug>`，A 榜 ID `<id>`，B 榜 ID `<id2>`）的参赛仓库。
+题目机制一句话：<预测什么 / 决策什么 / 输出什么>。
 
-leaderboard 评分公式：`<原文抄录>`。**最终排名只看 <X>，<中间变量> 只是中间产物。**
+leaderboard 评分公式：`<原文抄录>`。**最终排名只看 <X>，<A 榜成绩是否计入最终成绩>。**
 
 ## 仓库当前状态
 
 - <哪些脚本能跑、哪些是 stub、官方 baseline 修了什么>
-- 新增代码放 `src/`，提交文件放 `submissions/`（最终必须叫 `<官方要求文件名>`）。
-- `data/`、`models/`、`submissions/` 中的产物不要提交 git。
+- 新增代码放 `src/`，提交文件放 `submissions/<方案名>/`（最终必须叫 `<官方要求文件名>`）。
+- `data/`、`models/`、`submissions/` 产物不入 git，用 SHA-256 + 字节数在文档留痕。
+- 最新回执、候选指纹、运行状态以 `docs/experiment-log.md` 顶部为准，开工先核实际进程与产物。
 
 ## 数据概况
 
-| 数据集 | 行数 | 范围 | 备注 |
-|--------|------|------|------|
-| <训练集> | | | <缺失情况> |
-| <测试集> | | | <与训练集的列差异> |
+| 数据集 | 样本数 | **独立组数** | 范围 / 尺寸 | 备注 |
+|--------|------|------|------|------|
+| <训练集> | | | | <缺失 / 增强副本 / 稀有类组数> |
+| <测试集 A> | | | | <与训练集的列差异 / 域差异> |
+| <测试集 B> | | | | <发布时间> |
+
+验证协议：<按什么分组、几折、seed>；随机划分高估 <幅度>（代理探针实测）。
 
 ## 基线参考指标
 
-- 下界（全零/常数策略）：<分数>
+- 下界（常数策略族最高者 `<策略>`）：<分数>
 - 上界（oracle）：<分数>
-- baseline 线上得分：<分数>（<日期>，submitId <id>）
+- baseline 线上得分：<分数>（<日期>，SHA 前缀 <x>）
+- **单步分辨率**：<翻 1 个预测单元 = ±X>；`< 1 步不可分辨 / 1~3 步弱信号 / > 3 步真实差异`
+- 线上锚点：`submissions/<方案>/<文件>` <分数>（暴露度相对它算）
 
 ## 开发环境
 
-- Python `>=3.x`，用 **uv** 管理：`uv add <pkg>`、`uv sync`、`uv run python <script>`。
-- <平台特殊依赖，如 macOS 需 brew install libomp>
+- Python `>=3.x`，用 **uv** 管理：`uv add` / `uv sync` / `uv run python <script>`。
+- <平台特殊依赖、MPS / CUDA 注意事项>
+
+## ⚠️ 执行环境硬约束
+
+- 计算在 <哪台机器> 跑；<本机是否允许计算进程>。
+- 远程主机：`ssh <alias>`（<必要的 HostName 覆盖>）；仓库路径 `<path>`；数据路径与本地的差异 `<...>`。
+- 并发上限 <N> 路 GPU；启动前 `nvidia-smi` + `free -g` + `pgrep -af <异常进程>`；启动后 `renice`。
+- 长训练：`nohup` + `save-every ≤ 2` + 可 resume + 日志 / PID / 断点路径写进 experiment-log。
+- 训练在跑时绝不编辑它 import 的源文件；崩溃后清掉半截 run，不 resume。
 
 ## 关键约束（容易踩坑）
 
 全文见 `docs/requirements.md`，下面是最容易写错的几条：
 
-- **<硬约束 1，如充放电窗口规则>**
-- **<测试期拿不到的信息>**：任何依赖 <X> 的特征推理时不可用，训练可用推理拿不到即为泄漏。
+- **<硬约束 1>**
+- **<训练标注 id → 提交 id 映射>**
+- **<测试期拿不到的信息>**：训练可用推理拿不到即为泄漏。
 - **<异常但合法的数据口径>**：不要当异常剔除。
-- **<外部数据 / 代码审核规则>**
-- **<每日提交次数限制>**
+- **<外部数据 / 预训练权重口径>**（同平台其他赛题口径可能相反，勿互抄）
+- **<每日 / 累计提交次数>**；<最终取最后一次 / 历史最优>
+- **<冻结条款：B 榜发布前登记 solution.zip SHA-256 + 字节数，发布后不得改>**
 
 ## 提交格式
 
-`<文件名>` 必须严格匹配官方 demo：
+`<文件名>` 必须严格匹配官方 demo：<列名顺序 / 行数公式 / 时间格式 / 编码 / ZIP 结构>。
 
-- 列名与顺序：`<列清单>`
-- 行数：`<行数公式>`
-- <时间格式 / 编码等细节>
+提交前必跑：`uv run python src/check_submission.py submissions/<方案>/<文件>`。
+
+## ⚠️ 提交准入门禁
+
+**格式通过 ≠ 可以投。** 每个候选还必须过：
+
+```bash
+uv run python src/gate_candidate.py --dev-pred <同口径 dev 结果> --package submissions/<方案>/<文件>
+# exit code 0 = ADMITTED；非 0 一律不投
+```
+
+绑定判据：<瓶颈维度指标不得高于锚点 X / 同口径增益 ≥ 3 步 / 代价侧不恶化 / 暴露度 ≥ N>。
+判据来源与已证伪方向见 `docs/working-notes.md`「已关闭方向」与 experiment-log 对应条目。
+`models/*/` 里的中间产物与真候选结构相同，提交前必须自己重跑门禁。
+
+## B 榜冻结
+
+见 `docs/freeze-checklist.md`：冻结死线 <日期>，自设方案锁定截止 <日期>。
 
 ## 主要文档（按优先级）
 
-- `docs/requirements.md` — 数据、约束、评分、提交格式的权威整理。
-- `docs/working-notes.md` — 当前解题思路。
+- `docs/requirements.md` — 权威整理。
+- `docs/working-notes.md` — 当前思路与已关闭方向。
 - `docs/experiment-log.md` — 实验与提交全记录。
-- `docs/faq.md` — 官网 FAQ 重点。
-- `docs/competition-rules.md` — 赛程、组队、晋级、提交次数。
-- `docs/data-files.md`、`docs/source-material.md`、`metadata/` — 数据清单与官网原文备份。
+- `docs/competition-rules.md`、`docs/faq.md` — 赛程（正文口径）、FAQ 与待确认项。
+- `docs/freeze-checklist.md` — 冻结检查单。
+- `docs/data-files.md`、`docs/source-material.md`、`metadata/` — 数据清单与原文备份。
 
 ## 本地回测建议
 
-不要只优化 <中间指标>，最终决定排名的是 <评分指标>。同时跟踪：下界、oracle 上界、
-当前方案的捕获率（实际/oracle）。运行回测：`uv run python src/evaluate.py`。
+不只看总指标：分维度分解（检出 / 分类、各 IoU 档、各类别）找瓶颈维；
+同时跟踪下界、oracle、捕获率；线上判读对照单步分辨率。运行：`uv run python src/evaluate.py`。
 
 ## 代码规范
 
-<git commit 语言约定、lint / test 约定等>
+<git commit 语言约定、AI 署名偏好、lint / test 约定>
