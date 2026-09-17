@@ -3,7 +3,7 @@
 hoobnn 的个人 skills / 插件集合，用于分发可复用的 agent skills。目前包含：
 
 - **git-kit** — Git 工作流工具集：`gitmoji-commitlint-setup` skill 与 commit / rollback / cleanBranches / worktree 等命令。
-- **comp-kit** — 数据竞赛作战工具集：`comp-init`（仓库初始化）、`comp-experiment`（实验纪律）、`comp-submit`（提交管理）、`comp-retrospective`（阶段复盘与答辩）四个 skill，另配 `/comp-log`、`/comp-retro` 两个 Claude 命令入口（skill 本身也可经 `/comp-kit:<skill>` 直接调用），方法论提炼自完整参赛实战。
+- **comp-kit** — 数据竞赛作战工具集：`comp-init`（仓库初始化、验证协议、上下界与单步分辨率）、`comp-experiment`（单变量、同口径、预登记门禁、零成本诊断）、`comp-submit`（校验器 + 准入门禁、三层提交证据、回执、B 榜冻结）、`comp-retrospective`（阶段复盘、标定库、答辩）、`comp-campaign`（多赛题并行总控、子代理纪律、资源仲裁、守夜）五个 skill，另配 `/comp-gate`、`/comp-log`、`/comp-retro` 三个 Claude 命令入口（skill 本身也可经 `/comp-kit:<skill>` 直接调用），方法论提炼自时间序列决策赛与七题并行 CV / 语音赛两轮完整实战。
 - **math-modeling** — 数学建模竞赛（CUMCM / MCM / ICM）三阶段工作流 skill：建模分析 → 代码实现 → 论文撰写，含算法资源库、三角色工作细则与论文模板（基于上游 MIT 开源 skill 瘦身收录）。
 
 ## 使用
