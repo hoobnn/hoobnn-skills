@@ -1,6 +1,6 @@
 ---
 description: 仅用 Git 分析改动并自动生成 Conventional Commits 信息（风格跟随项目 commitlint.config.js，无配置时默认带 emoji）；必要时建议拆分提交，默认运行本地 Git 钩子（可 --no-verify 跳过）
-allowed-tools: Read(**), Exec(git status, git diff, git add, git restore --staged, git commit, git rev-parse, git config, git log), Write(.git/COMMIT_EDITMSG)
+allowed-tools: Read(**), Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git restore --staged:*), Bash(git commit:*), Bash(git rev-parse:*), Bash(git config:*), Bash(git log:*), Write(.git/COMMIT_EDITMSG)
 argument-hint: [--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope <scope>] [--type <type>]
 # examples:
 #   - /git-commit                           # 分析当前改动，生成提交信息（默认带 emoji）

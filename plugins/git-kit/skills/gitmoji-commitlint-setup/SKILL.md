@@ -57,7 +57,7 @@ ls package.json pnpm-lock.yaml yarn.lock package-lock.json commitlint.config.js 
 - **非 Node 项目也能用**：commitlint / husky 只依赖 Node 工具链，Swift / Go / Rust / Python 项目
   加一个最小 `package.json` 即可（原始项目就是一个 Swift app）。
 - **已有 `commitlint.config.js` 或 `.husky/commit-msg`**：先读，把差异讲给用户，问清覆盖、合并还是跳过。
-  尤其当已有规范是无 emoji 的 conventional commits 时，说明本规范会强制 emoji，与旧提交不兼容。
+  已有规范与第 0 步选的风格不同（如旧提交无 emoji、这次选了带 emoji 版）时，说明新钩子会拒绝旧格式。
 
 ### 2. package.json
 

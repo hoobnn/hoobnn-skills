@@ -1,6 +1,6 @@
 ---
 description: 管理 Git worktree，在项目平级的 ../.worktrees/ 目录下创建，支持智能默认和内容迁移
-allowed-tools: Read(**), Exec(git worktree add, git worktree list, git worktree remove, git worktree prune, git branch, git checkout, git rev-parse, git stash, cp, which, command, basename, dirname, pwd)
+allowed-tools: Read(**), Bash(git worktree:*), Bash(git branch:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git stash:*), Bash(cp:*), Bash(which:*), Bash(command:*), Bash(basename:*), Bash(dirname:*), Bash(pwd)
 argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [--guess-remote] [--detach] [--no-checkout] [--lock] [--from <source-path>] [--stash]
 # examples:
 #   - /git-worktree add feature-ui                     # 从 main/master 创建新分支 'feature-ui'
