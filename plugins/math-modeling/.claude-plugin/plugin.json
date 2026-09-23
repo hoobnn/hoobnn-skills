@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "math-modeling",
   "description": "数学建模竞赛（CUMCM / MCM / ICM）三角色工作流：建模分析、代码实现、论文撰写，含 7 大类算法资源库、三角色工作细则、Subagent 质检门禁，以及 docx / latex / figure / xlsx / pdf / paper_search 六个子工具。",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": {
     "name": "hoobnn",
     "email": "to192354134@gmail.com"
