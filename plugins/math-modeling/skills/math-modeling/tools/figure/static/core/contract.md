@@ -9,7 +9,7 @@ This skill supports **Python** and **MATLAB** as plotting backends. The backend 
 - If the task uses Python for modeling, plot with the Python toolchain (`setup_style.py`, `export_figure.py`, `visual_qa.py`).
 - If the task uses MATLAB for modeling, plot with the MATLAB toolchain (`apply_publication_style.m`, `export_publication_figure.m`).
 
-There is no R backend in this skill. Any reference to R, `nature_figure_backend.py set r`, or `backend-selection.md` in upstream documents is obsolete and must be ignored.
+There is no R backend in this skill.
 
 ## The selected backend is exclusive
 
@@ -35,4 +35,4 @@ If any row, column, replicate, image, or category is excluded, record the before
 
 The highest-priority rule is: **the chart serves the scientific logic**. Aesthetic polish, template matching, and complex layout are subordinate to making the core conclusion clear, defensible, and reviewable.
 
-For the full method to convert a request into core conclusion, evidence hierarchy, panel map, and review-risk checks, open `references/figure-contract.md`.
+For the full method to convert a request into core conclusion, evidence hierarchy, panel map, and review-risk checks, open `tools/figure/references/guides/figure_contract.md`.
