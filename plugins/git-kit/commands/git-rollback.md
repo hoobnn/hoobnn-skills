@@ -1,6 +1,6 @@
 ---
 description: 交互式回滚 Git 分支到历史版本；列分支、列版本、二次确认后执行 reset / revert
-allowed-tools: Read(**), Exec(git fetch, git branch, git tag, git log, git reflog, git checkout, git reset, git revert, git switch), Write()
+allowed-tools: Read(**), Bash(git fetch:*), Bash(git branch -a:*), Bash(git tag --merged:*), Bash(git log:*), Bash(git reflog:*)
 argument-hint: [--branch <branch>] [--target <rev>] [--mode reset|revert] [--depth <n>] [--dry-run] [--yes]
 # examples:
 #   - /git-rollback                # 全交互模式，dry-run

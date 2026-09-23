@@ -46,7 +46,7 @@ subject 非空、header ≤ 72 字符、body / footer 前留空行（warning 级
 ls package.json pnpm-lock.yaml yarn.lock package-lock.json commitlint.config.js .husky 2>/dev/null
 ```
 
-- **包管理器**：按 lockfile 判断；都没有默认 pnpm（这套规范源自 pnpm 项目），向用户说明可改。
+- **包管理器**：按 lockfile 判断；都没有默认 pnpm，向用户说明可改。
   后续安装命令与钩子内容都随包管理器走：
 
   | | pnpm | npm | yarn |
@@ -55,7 +55,7 @@ ls package.json pnpm-lock.yaml yarn.lock package-lock.json commitlint.config.js 
   | 钩子里执行 | `pnpm exec commitlint --edit "$1"` | `npx --no-install commitlint --edit "$1"` | `yarn commitlint --edit "$1"` |
 
 - **非 Node 项目也能用**：commitlint / husky 只依赖 Node 工具链，Swift / Go / Rust / Python 项目
-  加一个最小 `package.json` 即可（原始项目就是一个 Swift app）。
+  加一个最小 `package.json` 即可。
 - **已有 `commitlint.config.js` 或 `.husky/commit-msg`**：先读，把差异讲给用户，问清覆盖、合并还是跳过。
   已有规范与第 0 步选的风格不同（如旧提交无 emoji、这次选了带 emoji 版）时，说明新钩子会拒绝旧格式。
 

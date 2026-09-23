@@ -58,7 +58,7 @@ parent-directory/
   所以能通过校验。`EnterWorktree` / `ExitWorktree` 是会话级工具，不是斜杠命令，所以不写进本命令的 `allowed-tools`。
 - 切换后 `pwd && git branch --show-current` 验证。
 - 因为是用 `path` 进入已存在的 worktree（不是用 `name` 新建），`ExitWorktree(action: "keep")` 返回原目录时不会删掉它。
-- 少数 harness 版本声称 `path` 必须在 `.claude/worktrees/` 下；若确实被拒，退回到提示用户在新会话里手动进入该目录。
+- 若 `EnterWorktree` 拒绝该路径，退回到提示用户在新会话里手动进入该目录。
 
 ## migrate
 

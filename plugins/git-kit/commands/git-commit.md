@@ -51,7 +51,7 @@ header：`<emoji> <type>(<scope>)?: <subject>`，≤ 72 字符，祈使语气。
 
 - `scope` 小写。这不是风格偏好，git-kit 的 commit-msg 钩子以 error 级强制校验，大写会被拒。
 - **语言**跟随仓库历史：看 `git log -n 50 --pretty=%s` 判断中 / 英文；判断不了就按仓库主要语言，再退到英文。
-- **body**：subject 后空一行，`-` 列表，每项动词开头的祈使句（add… / fix… / update…），3 项以内，说明动机、要点或影响范围。
+- **body**：subject 后空一行，`-` 列表，每项动词开头的祈使句（add… / fix… / update…），只写读者需要的动机、要点或影响范围。
   不用冒号分隔格式（如 `Feature: description`）。
 - **footer**：body 后空一行。破坏性变更写 `BREAKING CHANGE: <description>` 或在 type 后加 `!`（`feat!:`）；
   其余用 git trailer（`Closes #123`、`Refs: #456`）。

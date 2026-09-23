@@ -1,6 +1,6 @@
 ---
 description: 安全查找并清理已合并或过期的 Git 分支，支持 dry-run 模式与自定义基准/保护分支
-allowed-tools: Read(**), Exec(git fetch, git config, git branch, git remote, git push, git for-each-ref, git log), Write()
+allowed-tools: Read(**), Bash(git fetch:*), Bash(git config --get-all:*), Bash(git branch -a:*), Bash(git branch -r:*), Bash(git branch --merged:*), Bash(git branch --no-merged:*), Bash(git for-each-ref:*), Bash(git log:*)
 argument-hint: [--base <branch>] [--stale <days>] [--remote] [--force] [--dry-run] [--yes]
 # examples:
 #   - /git-cleanBranches --dry-run
