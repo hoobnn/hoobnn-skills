@@ -37,7 +37,7 @@ description: >-
 ├── docs/                   # requirements / competition-rules / faq / data-files / source-material /
 │                           # experiment-log / working-notes / freeze-checklist（模板：references/docs-templates.md）
 ├── metadata/               # 官网原文、公告截图、榜单快照
-├── src/                    # 训练、预测、check_submission.py、gate_candidate.py、verify_* 脚本
+├── src/                    # 训练、预测、check_submission.py、gate_candidate.py、receipts.py、计算脚本、verify_*
 ├── data/  models/  submissions/<方案名>/   # 不入 git；产物用 SHA-256 + 字节数在文档留痕
 ├── notebooks/  archive/
 └── pyproject.toml          # uv
@@ -82,6 +82,6 @@ experiment-log；当前状态 → working-notes）。价值密度最高的两节
 - [ ] 布局、.gitignore、git 初始化；CLAUDE.md 与 AGENTS.md 同步，含评分公式、关键约束、准入门禁、执行环境约束。
 - [ ] 官网材料存档；requirements / competition-rules（正文口径赛程、冻结、复现环境）/ faq 成稿。
 - [ ] 数据审计完成，分组结构与验证协议写入入口文件与日志。
-- [ ] 下界、oracle、baseline、单步分辨率四个数有数；两个脚本落地且 baseline 产物全 PASS。
+- [ ] 下界、oracle、baseline、单步分辨率四个数有数；第 4 节列出的脚本已拷进 `src/` 且 baseline 产物全 PASS。
 - [ ] 至少一次线上提交成功（三层证据齐，见 comp-submit），experiment-log 有首条记录。
 - [ ] 有冻结条款的赛题：freeze-checklist.md 已建并写明死线。
