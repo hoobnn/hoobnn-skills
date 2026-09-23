@@ -23,7 +23,7 @@ cp "<SKILL_ROOT>/使用指南.md" "<PROJECT_ROOT>/使用指南.md"
 
 ## 强制执行协议
 
-用户明确点名本 Skill 或任务命中本 Skill 时，严格执行以下协议；不要把它降级为建议：
+用户明确点名本 Skill 或任务命中本 Skill 时，按以下协议执行：
 
 1. 在首次进度更新中回显：已激活本 Skill、`SKILL_ROOT`、`PROJECT_ROOT`、当前阶段、目标竞赛与届次、计划读取的角色和工具入口。未确认的官方规则明确标为待核验。
 2. 开始每个阶段前，实际读取该角色的 `SKILL.md`；使用 PDF、Excel、论文搜索、DOCX 或 LaTeX 时，再实际读取对应工具的 `SKILL.md`。知道文件路径不等于已经执行。
