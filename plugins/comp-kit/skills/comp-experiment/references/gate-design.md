@@ -18,7 +18,7 @@
 | 处置表 | 穷举所有结果区间，每段写处置 + 不做什么 |
 | 资源门 | 显存 / 内存峰值预算、smoke 步数、超时；不满足则不判定、不降 batch |
 
-用 `/comp-gate` 写进 experiment-log，或写进 receipt JSON（比文档更难事后改）。
+用 `comp-gate` skill 写进 experiment-log，或写进 receipt JSON（比文档更难事后改）。
 
 ## 处置表无缝覆盖，每段写「不做什么」
 

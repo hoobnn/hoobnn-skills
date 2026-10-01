@@ -1,9 +1,10 @@
 ---
+name: comp-retro
 description: 从 docs/experiment-log.md 与回执提炼阶段复盘/作战手册：一句话结论、最有效方法、已验证规律（标注适用边界）、证伪清单（区分证伪/不可分辨/外部约束关闭，写明前提）、离线↔线上标定库、可复用资产、下一阶段计划
-argument-hint: [阶段名，如 初赛|复赛，可选]
+argument-hint: '[阶段名，如 初赛|复赛，可选]'
 ---
 
-# /comp-retro
+# comp-retro
 
 按 comp-retrospective skill 及其 `references/retrospective-template.md`，为当前仓库生成 `docs/<阶段>复盘.md`。
 

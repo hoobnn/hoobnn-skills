@@ -1,14 +1,15 @@
 ---
+name: git-clean-branches
 description: 安全查找并清理已合并或过期的 Git 分支，支持 dry-run 模式与自定义基准/保护分支
 allowed-tools: Read(**), Bash(git fetch:*), Bash(git config --get-all:*), Bash(git branch -a:*), Bash(git branch -r:*), Bash(git branch --merged:*), Bash(git branch --no-merged:*), Bash(git for-each-ref:*), Bash(git log:*)
-argument-hint: [--base <branch>] [--stale <days>] [--remote] [--force] [--dry-run] [--yes]
+argument-hint: '[--base <branch>] [--stale <days>] [--remote] [--force] [--dry-run] [--yes]'
 # examples:
-#   - /git-cleanBranches --dry-run
-#   - /git-cleanBranches --base release/v2.1 --stale 90
-#   - /git-cleanBranches --remote --yes
+#   - /git-clean-branches --dry-run
+#   - /git-clean-branches --base release/v2.1 --stale 90
+#   - /git-clean-branches --remote --yes
 ---
 
-# Claude Command: Clean Branches
+# Clean Branches
 
 识别并清理**已合并**或**长期未更新**的分支。默认只读预览（`--dry-run`），删除需要用户明确确认或 `--yes`。
 

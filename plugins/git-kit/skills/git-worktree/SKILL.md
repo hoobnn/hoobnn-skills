@@ -1,7 +1,8 @@
 ---
+name: git-worktree
 description: 管理 Git worktree，在项目平级的 ../.worktree-<仓库名>/ 目录下创建，支持智能默认和内容迁移
 allowed-tools: Read(**), Bash(git worktree:*), Bash(git branch:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git stash:*), Bash(cp:*), Bash(which:*), Bash(command:*), Bash(basename:*), Bash(dirname:*), Bash(pwd)
-argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [--guess-remote] [--detach] [--no-checkout] [--lock] [--from <source-path>] [--stash]
+argument-hint: '<add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [--guess-remote] [--detach] [--no-checkout] [--lock] [--from <source-path>] [--stash]'
 # examples:
 #   - /git-worktree add feature-ui                     # 从 main/master 创建新分支 'feature-ui'
 #   - /git-worktree add hotfix -b fix/login            # 创建新分支 'fix/login'，路径为 'hotfix'
@@ -9,7 +10,7 @@ argument-hint: <add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [-
 #   - /git-worktree migrate feature-ui --stash         # 将当前 stash 迁移到 feature-ui
 ---
 
-# Claude Command: Git Worktree
+# Git Worktree
 
 在项目平级的 `../.worktree-<repo>/<path>` 下管理 worktree，`<repo>` 为主仓库目录名。直接执行并给简洁结果。
 
@@ -55,7 +56,7 @@ parent-directory/
 - Bash 里 `cd` 切不动：每次调用结束后 harness 会把 cwd 重置回原目录。
 - 用 harness 内置工具 `EnterWorktree(path: "<绝对路径>")`。它的 `path` 参数支持进入一个**已注册到当前仓库**
   的现有 worktree；`../.worktree-<repo>/<path>` 是用 `git worktree add` 注册的，出现在 `git worktree list` 里，
-  所以能通过校验。`EnterWorktree` / `ExitWorktree` 是会话级工具，不是斜杠命令，所以不写进本命令的 `allowed-tools`。
+  所以能通过校验。`EnterWorktree` / `ExitWorktree` 是会话级工具，不是斜杠命令，所以不写进本 skill 的 `allowed-tools`。
 - 切换后 `pwd && git branch --show-current` 验证。
 - 因为是用 `path` 进入已存在的 worktree（不是用 `name` 新建），`ExitWorktree(action: "keep")` 返回原目录时不会删掉它。
 - 若 `EnterWorktree` 拒绝该路径，退回到提示用户在新会话里手动进入该目录。

@@ -1,7 +1,8 @@
 ---
+name: git-commit
 description: 仅用 Git 分析改动并自动生成 Conventional Commits 信息（风格跟随项目 commitlint.config.js，无配置时默认带 emoji）；必要时建议拆分提交，默认运行本地 Git 钩子（可 --no-verify 跳过）
 allowed-tools: Read(**), Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git restore --staged:*), Bash(git commit:*), Bash(git rev-parse:*), Bash(git config:*), Bash(git log:*), Write(.git/COMMIT_EDITMSG)
-argument-hint: [--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope <scope>] [--type <type>]
+argument-hint: '[--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope <scope>] [--type <type>]'
 # examples:
 #   - /git-commit                           # 分析当前改动，生成提交信息（默认带 emoji）
 #   - /git-commit --all                     # 暂存所有改动并提交
@@ -10,7 +11,7 @@ argument-hint: [--no-verify] [--all] [--amend] [--signoff] [--no-emoji] [--scope
 #   - /git-commit --amend --signoff         # 修补上次提交并签名
 ---
 
-# Claude Command: Commit (Git-only)
+# Commit (Git-only)
 
 只用 Git 读取改动、判断是否拆分、生成 Conventional Commits 信息并提交。不调用包管理器或构建命令，
 不编辑工作区文件，只读写暂存区与 `.git/COMMIT_EDITMSG`。

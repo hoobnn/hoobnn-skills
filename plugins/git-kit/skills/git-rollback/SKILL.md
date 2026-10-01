@@ -1,14 +1,15 @@
 ---
+name: git-rollback
 description: 交互式回滚 Git 分支到历史版本；列分支、列版本、二次确认后执行 reset / revert
 allowed-tools: Read(**), Bash(git fetch:*), Bash(git branch -a:*), Bash(git tag --merged:*), Bash(git log:*), Bash(git reflog:*)
-argument-hint: [--branch <branch>] [--target <rev>] [--mode reset|revert] [--depth <n>] [--dry-run] [--yes]
+argument-hint: '[--branch <branch>] [--target <rev>] [--mode reset|revert] [--depth <n>] [--dry-run] [--yes]'
 # examples:
 #   - /git-rollback                # 全交互模式，dry-run
 #   - /git-rollback --branch dev   # 直接选 dev，其他交互
 #   - /git-rollback --branch dev --target v1.2.0 --mode reset --yes
 ---
 
-# Claude Command: Git Rollback
+# Git Rollback
 
 把指定分支回滚到旧版本。默认只读预览（`--dry-run`），真正执行需 `--yes` 或交互确认。
 

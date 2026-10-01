@@ -1,12 +1,13 @@
 ---
+name: comp-gate
 description: 实验开跑前把准入判据预登记进 docs/experiment-log.md：对照臂、唯一变量、主门 / 否决门 / 暴露度门阈值、口径、无缝处置表、资源门；事后不改
-argument-hint: [实验/候选名称与唯一变量，可选]
+argument-hint: '[实验/候选名称与唯一变量，可选]'
 ---
 
-# /comp-gate
+# comp-gate
 
 按 comp-experiment `references/gate-design.md`，在当前仓库 `docs/experiment-log.md` 顶部写一条「预登记」
-条目，供之后 `/comp-log` 回填。
+条目，供之后 `comp-log` 回填。
 
 1. 先读 gate-design.md 与仓库入口文件里的单步分辨率、线上锚点、已关闭方向。
 2. 从 `$ARGUMENTS` 与上下文确定对照臂（唯一线上验证过的锚点）、唯一变量、口径（权重 / 设备 / dev 集 /
@@ -16,4 +17,4 @@ argument-hint: [实验/候选名称与唯一变量，可选]
 4. 处置表穷举结果区间（过 / 主门过否决门不过 / 主门不过目标类正向 / 都不过 / 未跑满），每段写处置和不做什么。
 5. 检查可自执行性：每段指向的动作现在做得了，引用的脚本 / 包存在。仓库有 `src/gate_candidate.py` 时
    核对脚本常数与本次一致，不一致先改脚本并注明。
-6. 写完提示用户：出分后用 `/comp-log` 回填，判据不再改。
+6. 写完提示用户：出分后用 `comp-log` 回填，判据不再改。

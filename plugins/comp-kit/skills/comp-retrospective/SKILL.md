@@ -22,7 +22,7 @@ description: >-
 
 ## 复盘文档
 
-文件 `docs/<阶段>复盘.md`，模板见 `references/retrospective-template.md`（命令 `/comp-retro`）。各节容易写浅的地方：
+文件 `docs/<阶段>复盘.md`，模板见 `references/retrospective-template.md`（`comp-retro` skill）。各节容易写浅的地方：
 
 1. **一句话结论**：靠什么方法、从多少分打到多少分、排名、最重要的一条教训。
 2. **题目机制硬约束**：从 requirements 抄最容易踩的几条；新阶段规则可能变，逐条标「待核对」。

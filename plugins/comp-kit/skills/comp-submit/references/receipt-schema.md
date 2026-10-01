@@ -35,7 +35,7 @@
 要点：
 
 - `quota.before/after` 与 `remote_readback` 是判「投成功」的硬证据，缺一条都写「不可验」。
-- `preregistered_reading` 与 `offline` 在投递**前**写好（分别来自 `/comp-gate`、`paired_bootstrap.py`、
+- `preregistered_reading` 与 `offline` 在投递**前**写好（分别来自 `comp-gate`、`paired_bootstrap.py`、
   `exposure.py`），出分后只用 `receipts.py score <sha 前缀> --score ... --verdict ...` 回填。
 - 平台不给稳定 submitId 时（表格行号是易变的），用提交时间 + SHA 前缀定位，不伪造 ID。
 - 浏览器投递若终点击被权限拦截，回执写明「未投」，不写「已投」。

@@ -1,7 +1,7 @@
 {
   "name": "git-kit",
-  "version": "0.2.0",
-  "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地（skill）。",
+  "version": "0.3.0",
+  "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地，以及 git-commit / git-rollback / git-clean-branches / git-worktree 等 Git skill。",
   "author": {
     "name": "hoobnn",
     "email": "853555@gmail.com"
@@ -17,8 +17,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Git Kit",
-    "shortDescription": "配置 gitmoji + commitlint 提交规范。",
-    "longDescription": "Git 工作流工具集，目前提供 gitmoji-commitlint-setup skill，可为项目落地 gitmoji 或纯 Conventional Commits 的 commitlint + husky 提交校验。",
+    "shortDescription": "Git 提交规范落地、提交、回滚、分支清理与 worktree 管理。",
+    "longDescription": "Git 工作流工具集：gitmoji-commitlint-setup（为项目落地 gitmoji 或纯 Conventional Commits 的 commitlint + husky 提交校验）、git-commit（只用 Git 分析改动生成规范提交信息）、git-rollback（交互式回滚到历史版本）、git-clean-branches（安全清理已合并或过期分支）、git-worktree（在仓库同级 .worktree-<仓库名>/ 下管理 worktree）。",
     "developerName": "hoobnn",
     "category": "Productivity",
     "capabilities": [
@@ -26,8 +26,8 @@
     ],
     "defaultPrompt": [
       "给这个项目配上 gitmoji 提交规范",
-      "配置纯 Conventional Commits 提交校验",
-      "给仓库安装 husky commit-msg 钩子"
+      "帮我提交当前改动",
+      "给这个功能开一个 worktree"
     ]
   }
 }
