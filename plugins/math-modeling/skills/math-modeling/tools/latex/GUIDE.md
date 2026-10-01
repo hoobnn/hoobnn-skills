@@ -130,4 +130,4 @@ CUMCM 的约 15000 字词单位、约 20 页、5 个公式和 3 个表只是可�
 
 ## 转换为 DOCX
 
-需要同时交付 Word 时，读取 `../docx/SKILL.md`，调用 `equations.py convert-latex` 或后端 DOCX 工具的 `convert_latex` 动作。LaTeX 源码仍须独立编译 PDF；DOCX 转换不能替代 LaTeX 编译与校验。
+需要同时交付 Word 时，读取 `../docx/GUIDE.md`，调用 `equations.py convert-latex` 或后端 DOCX 工具的 `convert_latex` 动作。LaTeX 源码仍须独立编译 PDF；DOCX 转换不能替代 LaTeX 编译与校验。

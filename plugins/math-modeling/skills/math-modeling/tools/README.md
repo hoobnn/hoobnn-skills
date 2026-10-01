@@ -7,7 +7,7 @@
 `docx` / `xlsx` 目录同样保留各自 `LICENSE.txt`。
 
 本文件是给人读的中文导读：**什么时候用哪个、入口在哪、有哪些硬性约束**。
-模型执行时以各子目录 `SKILL.md` 原文为准。
+模型执行时以各子目录 `GUIDE.md` 原文为准。
 
 ---
 
@@ -15,12 +15,12 @@
 
 | 场景 | 用哪个 | 入口 |
 |------|--------|------|
-| 出论文 Word 稿、公式、修订批注 | `docx` | `docx/SKILL.md` |
-| 出论文 LaTeX 项目、编译校验 | `latex` | `latex/SKILL.md` |
-| 画出版级图表（默认交付图） | `figure` | `figure/SKILL.md` |
-| 读赛题附件数据表、输出结果表 | `xlsx` | `xlsx/SKILL.md` |
-| 读赛题 PDF、读优秀论文、提表格 | `pdf` | `pdf/SKILL.md` |
-| 查参考文献、生成可追溯引用 | `paper_search` | `paper_search/SKILL.md` |
+| 出论文 Word 稿、公式、修订批注 | `docx` | `docx/GUIDE.md` |
+| 出论文 LaTeX 项目、编译校验 | `latex` | `latex/GUIDE.md` |
+| 画出版级图表（默认交付图） | `figure` | `figure/GUIDE.md` |
+| 读赛题附件数据表、输出结果表 | `xlsx` | `xlsx/GUIDE.md` |
+| 读赛题 PDF、读优秀论文、提表格 | `pdf` | `pdf/GUIDE.md` |
+| 查参考文献、生成可追溯引用 | `paper_search` | `paper_search/GUIDE.md` |
 
 ---
 
@@ -122,5 +122,5 @@
 - 上游：[XiaoMaColtAI/math-modeling-skill](https://github.com/XiaoMaColtAI/math-modeling-skill)，
   当前收录版本见根目录 `VERSION`，变更见 `CHANGELOG.md`。
 - 本目录内容**保持上游原样**，不做翻译或改写，以便后续同步。
-  需要补中文说明时写到本文件，不要改动各子目录的 `SKILL.md`。
+  需要补中文说明时写到本文件，不要改动各子目录的 `GUIDE.md`。
 - `docx` / `pdf` / `xlsx` 含 Anthropic 官方 skill 代码，许可见各目录 `LICENSE.txt`。

@@ -247,7 +247,7 @@ kaleido>=0.2.1         # 可选；plotly 导出
 
 | 情形 | 读取 |
 |---|---|
-| 画图 | 本文件 `tools/figure/SKILL.md` |
+| 画图 | 本文件 `tools/figure/GUIDE.md` |
 | 不确定用什么图 | `tools/figure/references/chart-types/chart_selection.md` |
 | 需要图表函数 | `tools/figure/references/api-templates/plot_recipes.md` |
 | 交付前 | `tools/figure/references/quality/publication_checklist.md` |

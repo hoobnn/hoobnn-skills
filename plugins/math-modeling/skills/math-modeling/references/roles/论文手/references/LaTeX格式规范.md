@@ -14,7 +14,7 @@
 6. 保留初始化生成的 `latex-project.json`，其中模板来源、版本、哈希、主入口和资源绑定必须与实际项目一致。
 7. 代码和图表复制到 LaTeX 项目后立即执行 `latex_paper.py bind`，禁止两处独立修改。
 
-详细命令与校验能力见 `../../../../tools/latex/SKILL.md`。
+详细命令与校验能力见 `../../../../tools/latex/GUIDE.md`。
 
 ## 公式、图表和引用
 

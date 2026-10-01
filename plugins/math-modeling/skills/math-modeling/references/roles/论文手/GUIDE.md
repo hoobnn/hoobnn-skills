@@ -56,7 +56,7 @@ description: 根据题目、建模分析和真实代码结果生成完整 Word �
 3. 在开始长篇正文和双格式排版前，派发独立质检 Subagent 执行 `W1` 证据大纲门禁；未返回 `PASS` 不得先写后补。
 4. 按官方结构写完整正文，引用由双引擎搜索结果和原始出版页面核验。
 5. 默认先确定同一份正文、数据、图表和参考文献，再生成 Word；用户显式要求 LaTeX 时同时生成 LaTeX，禁止两份论文出现不同结论。
-6. Word 使用 `../../../tools/docx/SKILL.md` 构建 DOCX，公式使用原生 OMML；已有完整 LaTeX 主稿时可通过 `convert_latex` 生成内容一致的 Word 初稿，再按官方 DOCX 模板修正。LaTeX（可选）使用 `../../../tools/latex/SKILL.md` 复制完整官方模板项目、填充源码并真实编译 PDF。
+6. Word 使用 `../../../tools/docx/GUIDE.md` 构建 DOCX，公式使用原生 OMML；已有完整 LaTeX 主稿时可通过 `convert_latex` 生成内容一致的 Word 初稿，再按官方 DOCX 模板修正。LaTeX（可选）使用 `../../../tools/latex/GUIDE.md` 复制完整官方模板项目、填充源码并真实编译 PDF。
 7. 首次生成完整且满足已知硬约束的论文和支撑材料后，保存为独立的 Checkpoint V1；后续优化在新版本上进行，不得原地覆盖唯一可提交版本。条件允许时记录文件清单和 SHA-256。
 8. 检查 Word 的结构、篇幅、公式、图表、全部子问题覆盖、编号引用、参考文献、Markdown 格式残留和实际渲染页数。用户显式要求 LaTeX 时，还必须消除编译错误及未解析的引用，核对权威资源—源码—PDF 哈希、PDF 总页数、正文页数、附录边界、字体嵌入、空白页、页面尺寸和图片 DPI；所有预警必须修正，或根据当届官方规则记录明确覆盖理由后才能继续。
 9. 在安全时间内完成受控优化并复验为 Checkpoint V2；到达内部冻结时间后停止非必要修改，完成最终导出、完整性与合规检查，并提醒用户为上传和提交确认预留时间。
@@ -99,8 +99,8 @@ Word 门禁通过后还必须提取实际 DOCX 文本并检查 Markdown 格式�
 |---|---|
 | 开始写作 | `references/工作流程.md` |
 | 组织章节 | `references/章节模板.md` |
-| 生成 Word | `references/论文格式规范.md`、`../../../tools/docx/SKILL.md` |
-| 生成 LaTeX | `references/LaTeX格式规范.md`、`../../../tools/latex/SKILL.md` |
+| 生成 Word | `references/论文格式规范.md`、`../../../tools/docx/GUIDE.md` |
+| 生成 LaTeX | `references/LaTeX格式规范.md`、`../../../tools/latex/GUIDE.md` |
 | 中文写作检查 | `references/写作规范.md` |
 | 抓分检查（摘要/结论/图表） | `references/写作规范.md`（第二节 评阅人抓分方法论） |
 | 英文 MCM/ICM | `references/英文化工作流.md` |

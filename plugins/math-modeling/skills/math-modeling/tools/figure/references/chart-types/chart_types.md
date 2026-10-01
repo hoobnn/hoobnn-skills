@@ -218,7 +218,7 @@ ax.spines['left'].set_bounds(0, y_max)
 
 ## 相关文件
 
-- [SKILL.md](../SKILL.md) — 使用场景
+- [GUIDE.md](../GUIDE.md) — 使用场景
 - [api.md](api.md) — PALETTE 和核心辅助函数签名
 - [common_patterns.md](common_patterns.md) — 柱状图、趋势图和布局模式
 - [design_theory.md](design_theory.md) — 原理和配色理论

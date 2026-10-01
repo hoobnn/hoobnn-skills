@@ -26,7 +26,7 @@ cp "<SKILL_ROOT>/使用指南.md" "<PROJECT_ROOT>/使用指南.md"
 用户明确点名本 Skill 或任务命中本 Skill 时，按以下协议执行：
 
 1. 在首次进度更新中回显：已激活本 Skill、`SKILL_ROOT`、`PROJECT_ROOT`、当前阶段、目标竞赛与届次、计划读取的角色和工具入口。未确认的官方规则明确标为待核验。
-2. 开始每个阶段前，实际读取该角色的 `SKILL.md`；使用 PDF、Excel、论文搜索、DOCX 或 LaTeX 时，再实际读取对应工具的 `SKILL.md`。知道文件路径不等于已经执行。
+2. 开始每个阶段前，实际读取该角色的 `GUIDE.md`；使用 PDF、Excel、论文搜索、DOCX 或 LaTeX 时，再实际读取对应工具的 `GUIDE.md`。知道文件路径不等于已经执行。
 3. 严格调用 Skill 提供的脚本和模板。已有初始化、转换、编译或校验工具时，禁止为了省时手写替代实现。
 4. 把任何校验预警视为未完成。只有当届官方规则或用户明确要求允许偏离时，才能记录“规则来源、偏离项、理由”后继续；不得自行降低篇幅、图表、公式、引用或编译质量目标。
 5. 环境缺少引擎、搜索源、渲染器或依赖时，报告阻塞并继续完成仍可验证的部分；禁止静默换工具、跳过验证或用较差产物冒充完成。
@@ -57,10 +57,10 @@ cp "<SKILL_ROOT>/使用指南.md" "<PROJECT_ROOT>/使用指南.md"
 
 | 用户意图 | 加载入口 | 是否要求前一阶段已完成 |
 |---|---|---|
-| 完整建模、完成整题 | `references/roles/建模手/SKILL.md` → `references/roles/编程手/SKILL.md` → `references/roles/论文手/SKILL.md` | 按顺序执行 |
-| 只做题目分析、选模型 | `references/roles/建模手/SKILL.md` | 否 |
-| 只写代码、跑结果、出图 | `references/roles/编程手/SKILL.md` | 需要题目和可执行的模型说明；缺失时先补齐必要分析 |
-| 只写或修改论文 | `references/roles/论文手/SKILL.md` | 需要题目、模型、真实运行结果和图表；缺失时回退到对应阶段 |
+| 完整建模、完成整题 | `references/roles/建模手/GUIDE.md` → `references/roles/编程手/GUIDE.md` → `references/roles/论文手/GUIDE.md` | 按顺序执行 |
+| 只做题目分析、选模型 | `references/roles/建模手/GUIDE.md` | 否 |
+| 只写代码、跑结果、出图 | `references/roles/编程手/GUIDE.md` | 需要题目和可执行的模型说明；缺失时先补齐必要分析 |
+| 只写或修改论文 | `references/roles/论文手/GUIDE.md` | 需要题目、模型、真实运行结果和图表；缺失时回退到对应阶段 |
 
 不要在单阶段任务中强制执行完整流程。
 
@@ -110,18 +110,18 @@ cp "<SKILL_ROOT>/使用指南.md" "<PROJECT_ROOT>/使用指南.md"
 
 ## 渐进式加载
 
-先读当前阶段的 `SKILL.md`，再按其中“何时加载”表读取所需参考，禁止一次性加载全部资料。
+先读当前阶段的 `GUIDE.md`，再按其中“何时加载”表读取所需参考，禁止一次性加载全部资料。
 
 | 当前任务 | 额外读取 |
 |---|---|
 | 选模型或查算法 | `references/算法索引.md`，再读取一个或少数几个相关 `assets/*.md` |
-| 搜索论文 | `tools/paper_search/SKILL.md` |
-| 读取题目 PDF | `tools/pdf/SKILL.md` |
-| 处理 Excel | `tools/xlsx/SKILL.md` |
-| 画图 | `tools/figure/SKILL.md` |
-| 生成 Word 论文 | `tools/docx/SKILL.md` |
-| 生成 LaTeX 论文 | `tools/latex/SKILL.md` |
-| LaTeX 论文转 Word | `tools/docx/SKILL.md` |
+| 搜索论文 | `tools/paper_search/GUIDE.md` |
+| 读取题目 PDF | `tools/pdf/GUIDE.md` |
+| 处理 Excel | `tools/xlsx/GUIDE.md` |
+| 画图 | `tools/figure/GUIDE.md` |
+| 生成 Word 论文 | `tools/docx/GUIDE.md` |
+| 生成 LaTeX 论文 | `tools/latex/GUIDE.md` |
+| LaTeX 论文转 Word | `tools/docx/GUIDE.md` |
 | 派发 Subagent 或阶段质检 | `references/Subagent调度.md` |
 | 真实竞赛、截止时间或最终提交 | `references/交付与截止时间协议.md` |
 

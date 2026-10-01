@@ -224,7 +224,7 @@ plt.close(fig)
 
 ## 相关文件
 
-- [SKILL.md](../SKILL.md) — 何时使用本工具
+- [GUIDE.md](../GUIDE.md) — 何时使用本工具
 - [api.md](api.md) — 可复用辅助函数实现
 - [common_patterns.md](common_patterns.md) — 上述示例使用的布局模式
 - [design_theory.md](design_theory.md) — 这些选择背后的原因

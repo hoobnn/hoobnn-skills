@@ -11,7 +11,7 @@
 - `SKILL.md` — 技能入口：三角色工作流程与资源索引。
 - `使用指南.md` — 定位、交付物使用边界、提交前人工核对事项。
 - `assets/` — 7 大类算法资源库（优化 / 预测 / 评价 / 图论 / 统计 / 综合 / 机器学习）。
-- `references/roles/` — 建模手 / 编程手 / 论文手三角色工作细则（各含 SKILL.md 与子文档）。
+- `references/roles/` — 建模手 / 编程手 / 论文手三角色工作细则（各含 GUIDE.md 与子文档）。
 - `references/Subagent调度.md` — 质检门禁（M1 / P1 / P2 / W1 / W2）与可选协作。
 - `references/交付与截止时间协议.md` — Checkpoint 与截止时间保护。
 - `tools/` — 六个子 skill：`docx` / `latex` / `figure` / `xlsx` / `pdf` / `paper_search`。
