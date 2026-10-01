@@ -6,7 +6,7 @@
     "email": "853555@gmail.com"
   },
   "description": "hoobnn 的个人 skills / 插件集合",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "plugins": [
     {
       "name": "git-kit",
