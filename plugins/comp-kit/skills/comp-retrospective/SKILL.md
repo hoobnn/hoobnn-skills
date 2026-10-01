@@ -22,7 +22,7 @@ description: >-
 
 ## 复盘文档
 
-文件 `docs/<阶段>复盘.md`，模板见 `references/retrospective-template.md`（`comp-retro` skill）。各节容易写浅的地方：
+文件 `docs/<阶段>复盘.md`，模板见 `references/retrospective-template.md`。各节容易写浅的地方：
 
 1. **一句话结论**：靠什么方法、从多少分打到多少分、排名、最重要的一条教训。
 2. **题目机制硬约束**：从 requirements 抄最容易踩的几条；新阶段规则可能变，逐条标「待核对」。
@@ -47,7 +47,7 @@ description: >-
 
 ## 归档
 
-- 冲刺期临时脚本与产物移入 `archive/<阶段>冲刺/`，`src/` 只留下一阶段还要用的资产。
+- 冲刺期临时脚本与产物移入 `archive/<阶段>冲刺/`，`src/` 只留下一阶段还要用的资产；先列清单，经用户确认再移动。
 - experiment-log 与回执是原始台账，不动；复盘是提炼视图，两者互链。
 - 多代理并行时产物目录不是私有的，归档前核对「目录里多了什么」；带 `DO NOT SUBMIT` 标记的中间产物
   不进资产清单。

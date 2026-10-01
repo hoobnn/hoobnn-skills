@@ -51,7 +51,7 @@ description: >-
 - **单步分辨率与暴露度**（`references/resolution-and-exposure.md`）：翻动 1 个预测单元线上指标变多少，
   小于它的线上差异是噪声不是证据（实战因此撤回三条误判的「线上证伪」）；候选相对线上锚点改动了多少
   个单元决定它能不能被测出，但不决定正负。
-- **预登记门禁**（`references/gate-design.md`，`comp-gate` skill）：阈值、口径、对照臂、处置表在开跑前写死，
+- **预登记门禁**（`references/gate-design.md`）：阈值、口径、对照臂、处置表在开跑前写死，
   判据无缝覆盖所有结果区间且每段写明不做什么；已知「A 类有效 B 类有害」的方向要有否决门；门禁写成脚本，
   用已知线上崩盘的候选做回归验证。
 - **零成本诊断**（`references/diagnosis-playbook.md`）：动手前审计已有的再平衡机制（同轴干预会被吸收）、
@@ -75,8 +75,8 @@ description: >-
 
 ## 记录
 
-日志在 `docs/experiment-log.md`，新记录加顶部，字段与样例见 `references/experiment-log-template.md`
-（`comp-log` skill）。几处容易写歪：
+日志在 `docs/experiment-log.md`，新记录加顶部，字段与样例见 `references/experiment-log-template.md`。
+几处容易写歪：
 
 - 证据分级严格分开：smoke / 独立 dev / A 榜 / B 榜。诊断性小跑不写成正式训练；「计划产出」不写成
   「已产出」，写之前 `ls`。

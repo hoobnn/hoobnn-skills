@@ -17,8 +17,8 @@ npx skills add hoobnn/hoobnn-skills --skill '*' -g -a claude-code -y
 # 只装一个 skill 到 Codex
 npx skills add hoobnn/hoobnn-skills --skill git-worktree -g -a codex -y
 
-# 先看有哪些 skill
-npx skills add hoobnn/hoobnn-skills --list
+# 更新已安装的 skill
+npx skills update -g -y
 ```
 
 装好后新开会话即可使用：直接用自然语言描述需求，agent 会自动选用对应 skill；也可以用斜杠入口手动调用，例如 `/git-commit`、`/git-worktree add feature-ui`。
@@ -46,7 +46,6 @@ npx skills add hoobnn/hoobnn-skills --list
 | `comp-submit` | 提交管理：脚本化校验与准入门禁、三层提交证据与回执、每日额度预算、探针提交、B 榜冻结 |
 | `comp-retrospective` | 阶段复盘与答辩：作战手册、证伪清单、离线↔线上标定库、答辩 PPT 与 QA |
 | `comp-campaign` | 多赛题并行总控：看板、额度与提交权、共享机器资源仲裁、子代理纪律、守夜与唤醒 |
-| `comp-gate` / `comp-log` / `comp-retro` | 手动入口：实验预登记、追加实验记录、生成阶段复盘 |
 
 ### 数学建模竞赛（math-modeling）
 
@@ -54,47 +53,27 @@ npx skills add hoobnn/hoobnn-skills --list
 |---|---|
 | `math-modeling` | 国赛 / 美赛三角色工作流（建模手、编程手、论文手），含 7 大类算法资源库、Subagent 质检门禁，以及 docx / latex / figure / xlsx / pdf / 论文检索六个子工具 |
 
-基于 [XiaoMaColtAI/math-modeling-skill](https://github.com/XiaoMaColtAI/math-modeling-skill)（MIT License）精简收录。
-
 ## 支持的 Agent
 
-| Agent | 安装参数 `-a` | 斜杠入口 | 备注 |
-|---|---|---|---|
-| Claude Code | `claude-code` | `/git-commit` | |
-| Codex | `codex` | `$git-commit` 或直接描述需求 | |
-| opencode | `opencode` | `/git-commit` | |
-| Grok Build | `grok` | `/git-commit` | |
-| Antigravity CLI（agy） | `antigravity-cli` | `/git-commit` | 需额外配置，见下方 FAQ |
+| Agent | 安装参数 `-a` | 手动调用 |
+|---|---|---|
+| Claude Code | `claude-code` | `/git-commit` |
+| Codex | `codex` | `$git-commit` |
+| opencode | `opencode` | `/git-commit` |
+| Grok Build | `grok` | `/git-commit` |
+| Antigravity CLI（agy） | `antigravity-cli` | `/git-commit` |
 
-`npx skills` 支持的其他 agent 同样可用，`-a '*'` 一次装到全部。
+`-a '*'` 一次装到 `npx skills` 支持的全部 agent。全局安装时本体放在 `~/.agents/skills`，Claude Code、Grok 通过软链读取同一份。
 
-## 常见问题
-
-### 怎么更新？
-
-```bash
-npx skills update -g -y
-```
-
-### skill 装在哪里？
-
-全局安装时本体放在 `~/.agents/skills`，Codex、opencode 直接读取；Claude Code（`~/.claude/skills`）和 Grok（`~/.grok/skills`）通过软链指向同一份。加 `--copy` 可改为复制。
-
-### Antigravity CLI（agy）读不到 skill？
-
-agy 全局不读 `~/.agents/skills`，需要在 `~/.gemini/config/skills.json` 登记一次（必须写绝对路径，`~` 不会展开）：
+agy 全局不读 `~/.agents/skills`，需要在 `~/.gemini/config/skills.json` 登记一次（写绝对路径，`~` 不会展开）：
 
 ```json
 { "entries": [ { "path": "/Users/<you>/.agents/skills" } ] }
 ```
 
-### 斜杠命令需要单独安装吗？
+## 插件市场安装（备选）
 
-不需要。所有能力都以 skill（`SKILL.md`）提供，支持 skill 的 agent 会自动注册斜杠入口。
-
-### 可以用插件市场安装吗？
-
-可以，适合想跟随插件自动更新的场景。同一个 agent 不要同时用 `npx skills` 和插件两种方式安装，同名 skill 会重复出现。
+适合想跟随插件自动更新的场景。同一个 agent 不要同时用 `npx skills` 和插件两种方式安装，同名 skill 会重复出现。
 
 <details>
 <summary>Claude Code / Codex / Grok 插件市场安装命令</summary>
@@ -124,46 +103,11 @@ grok plugin install git-kit@hoobnn-skills
 
 </details>
 
-## 开发与贡献
+## 编写约束
 
-### 仓库结构
-
-```
-hoobnn-skills/
-├── .claude-plugin/marketplace.json     # Claude Code 插件市场清单
-├── .agents/plugins/marketplace.json    # Codex 插件市场清单
-└── plugins/<plugin-name>/
-    ├── .claude-plugin/plugin.json
-    ├── .codex-plugin/plugin.json
-    └── skills/<skill-name>/SKILL.md
-```
-
-### 新增一个 skill
-
-1. 在 `plugins/<plugin-name>/skills/<skill-name>/SKILL.md` 编写 skill。frontmatter 必须有 `name`（小写加连字符，与目录名一致）和 `description`；值以 `[`、`<` 开头时加引号，否则 `npx skills` 解析失败会跳过该 skill。
-2. skill 目录内不要再放其他 `SKILL.md`：Codex、opencode 会递归扫描并把它们误注册为独立 skill，子文档改用其他文件名（如 `GUIDE.md`）。
-3. 需要斜杠入口的能力也写成 skill，不写 `commands/`。
-
-### 新增一个插件
-
-1. 在 `plugins/<plugin-name>/.claude-plugin/plugin.json` 定义 Claude Code 插件。
-2. 在 `plugins/<plugin-name>/.codex-plugin/plugin.json` 定义 Codex 插件，并声明 `"skills": "./skills/"`。
-3. 在 `.claude-plugin/marketplace.json` 的 `plugins` 数组追加一项（`source` 必须以 `./` 开头，裸目录名不被支持）：
-
-   ```json
-   { "name": "<plugin-name>", "source": "./plugins/<plugin-name>", "description": "..." }
-   ```
-
-4. 在 `.agents/plugins/marketplace.json` 的 `plugins` 数组追加一项：
-
-   ```json
-   {
-     "name": "<plugin-name>",
-     "source": { "source": "local", "path": "./plugins/<plugin-name>" },
-     "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
-     "category": "Productivity"
-   }
-   ```
+- skill 放在 `plugins/<plugin>/skills/<name>/SKILL.md`；frontmatter 的 `name` 用小写加连字符并与目录名一致，值以 `[`、`<` 开头时加引号，否则 `npx skills` 会跳过该 skill。
+- skill 目录内不放第二个 `SKILL.md`，子文档改用其他文件名（如 `GUIDE.md`），否则 Codex、opencode 会把它误注册为独立 skill。
+- 需要斜杠入口的能力也写成 skill，不写 `commands/`。
 
 ## 许可
 

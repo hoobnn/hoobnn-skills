@@ -31,8 +31,8 @@ env -u CLAUDECODE python3 -m scripts.run_eval \
    工具不是 Skill」直接判失败。改为放宽到 4 轮内（`--max-turns 4`）调用即算触发。
 
 另两条运行要求：评估目录必须**不含任何真实项目文件**（空目录即可，命令文件由脚本
-创建），并用 `--settings '{"enabledPlugins":{"comp-kit@hoobnn-skills":false,"git-kit@hoobnn-skills":false}}'`
-禁掉已安装的同名插件再测，否则测的是装好的版本而非工作区的 description。
+创建），并临时移走 `~/.claude/skills/<skill>` 这个已安装的同名软链再测，否则测的是装好的版本而非工作区的
+description。
 
 ## 2026-09-17 基线
 
