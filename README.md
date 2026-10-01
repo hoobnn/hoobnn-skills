@@ -164,3 +164,10 @@ hoobnn-skills/
      "category": "Productivity"
    }
    ```
+
+## 许可
+
+本仓库以 [MIT License](LICENSE) 发布，以下内容除外：
+
+- `plugins/math-modeling/skills/math-modeling/tools/docx`、`tools/pdf`、`tools/xlsx` 含 Anthropic 官方 skill 代码，许可见各目录 `LICENSE.txt`。
+- math-modeling 基于 [XiaoMaColtAI/math-modeling-skill](https://github.com/XiaoMaColtAI/math-modeling-skill)（MIT License）修改。
