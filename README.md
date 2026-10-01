@@ -28,6 +28,11 @@ npx skills add hoobnn/hoobnn-skills --skill git-worktree -g -a codex -y
 
 - 同一个工具不要既用 `npx skills` 又装本仓库的插件，同名 skill 会重复出现。
 - 公共目录 `~/.agents/skills` 会被 Codex、opencode 等多个工具同时读取；装到这里的 skill 对这些工具都生效。
+- Antigravity CLI（agy）全局不读 `~/.agents/skills`，需要在 `~/.gemini/config/skills.json` 里登记一次（路径写绝对路径，`~` 不展开）：
+
+  ```json
+  { "entries": [ { "path": "/Users/<you>/.agents/skills" } ] }
+  ```
 
 ### 插件市场（备选）
 
