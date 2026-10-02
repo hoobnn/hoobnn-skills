@@ -4,7 +4,7 @@
   "description": "Git 工作流工具集：gitmoji + commitlint 提交规范落地，以及 git-commit / git-rollback / git-clean-branches / git-worktree 等 Git skill。",
   "author": {
     "name": "hoobnn",
-    "email": "853555@gmail.com"
+    "email": "uhoobnn@ikuyu.com"
   },
   "repository": "https://github.com/hoobnn/hoobnn-skills",
   "keywords": [
