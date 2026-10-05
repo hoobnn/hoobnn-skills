@@ -1,6 +1,6 @@
 ---
 name: git-worktree
-description: 管理 Git worktree，在项目平级的 ../.worktree-<仓库名>/ 目录下创建，支持智能默认和内容迁移
+description: 管理 Git worktree：在主仓库平级的 <仓库名>.worktrees/<分支>/ 下创建、列出、删除，可把未提交改动或 stash 迁过去。当用户说「开个 worktree」「新开一个分支目录并行做」「把这些改动挪到另一个 worktree」「清理 worktree」时使用。
 allowed-tools: Read(**), Bash(git worktree:*), Bash(git branch:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git stash:*), Bash(cp:*), Bash(which:*), Bash(command:*), Bash(basename:*), Bash(dirname:*), Bash(pwd)
 argument-hint: '<add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [--guess-remote] [--detach] [--no-checkout] [--lock] [--from <source-path>] [--stash]'
 # examples:
@@ -12,12 +12,12 @@ argument-hint: '<add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [
 
 # Git Worktree
 
-在项目平级的 `../.worktree-<repo>/<path>` 下管理 worktree，`<repo>` 为主仓库目录名。直接执行并给简洁结果。
+在主仓库平级的 `<repo>.worktrees/<path>` 下管理 worktree，`<repo>` 为主仓库目录名。直接执行并给简洁结果。
 
 ```
 parent-directory/
-├── your-project/        # 主项目
-└── .worktree-your-project/   # 与项目平级，按仓库名区分
+├── your-project/             # 主项目
+└── your-project.worktrees/   # 与项目平级，按仓库名区分，ls 时紧挨主项目
     ├── feature-ui/
     └── hotfix/
 ```
@@ -26,7 +26,7 @@ parent-directory/
 
 | 选项 | 说明 |
 |---|---|
-| `add <path>` | 在 `../.worktree-<repo>/<path>` 创建 worktree。未指定 `-b` 时用 `<path>` 作新分支名，新分支从 main / master 创建 |
+| `add <path>` | 在 `<repo>.worktrees/<path>` 创建 worktree。未指定 `-b` 时用 `<path>` 作新分支名，新分支从 main / master 创建 |
 | `list` / `remove <path>` / `prune` | 列出 / 删除（同时清理 git 引用）/ 清理失效记录 |
 | `migrate <target>` | 把未提交改动（`--from <source>`）或 stash（`--stash`）迁到目标 worktree |
 | `-b <branch>` | 指定新分支名 |
@@ -39,7 +39,8 @@ parent-directory/
 `add` 可能在主仓库里执行，也可能在某个已有 worktree 里执行。先用 `git rev-parse --git-common-dir`
 与 `--show-toplevel` 比较：两者不等于 `<toplevel>/.git` 说明当前在 worktree 里，主仓库路径取
 `dirname <git-common-dir>`。`<repo>` 取 `basename <main-repo>`（不是当前 worktree 目录名）。目标路径始终用**绝对路径**
-`<main-repo>/../.worktree-<repo>/<path>`，否则在 worktree 内用相对路径或当前目录名，会错落到 `.worktree-<repo>/.worktree-<当前 worktree 名>/` 下。
+`<main-repo>.worktrees/<path>`，否则在 worktree 内用相对路径或当前目录名，会错落到 `<repo>.worktrees/<当前 worktree 名>.worktrees/` 下。
+`<path>` 含 `/`（如 `fix/login`）时把 `/` 换成 `-` 作目录名，分支名保持原样。
 
 创建前检查目录不存在、分支未被其他 worktree 检出。
 
@@ -55,7 +56,7 @@ parent-directory/
 
 - Bash 里 `cd` 切不动：每次调用结束后 harness 会把 cwd 重置回原目录。
 - 用 harness 内置工具 `EnterWorktree(path: "<绝对路径>")`。它的 `path` 参数支持进入一个**已注册到当前仓库**
-  的现有 worktree；`../.worktree-<repo>/<path>` 是用 `git worktree add` 注册的，出现在 `git worktree list` 里，
+  的现有 worktree；`<repo>.worktrees/<path>` 是用 `git worktree add` 注册的，出现在 `git worktree list` 里，
   所以能通过校验。`EnterWorktree` / `ExitWorktree` 是会话级工具，不是斜杠命令，所以不写进本 skill 的 `allowed-tools`。
 - 切换后 `pwd && git branch --show-current` 验证。
 - 因为是用 `path` 进入已存在的 worktree（不是用 `name` 新建），`ExitWorktree(action: "keep")` 返回原目录时不会删掉它。
@@ -70,4 +71,7 @@ parent-directory/
 ## Notes
 
 - worktree 共享 `.git`，不额外占仓库空间。
+- 旧版本把 worktree 建在 `../.worktree-<repo>/`。`list` 时若发现注册路径在这种目录下，提示可用
+  `git worktree move <旧路径> <repo>.worktrees/<path>` 迁到新位置（移动前确认没有会话正在用它）。
+- 删除主仓库前先 `git worktree remove` 掉它的 worktree，否则会留下孤儿目录。
 - 依赖 bash；Windows 需 Git Bash / WSL。

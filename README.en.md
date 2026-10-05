@@ -35,9 +35,9 @@ Start a new session afterwards. Describe what you want in plain words and the ag
 | Skill | What it does | Example |
 |---|---|---|
 | `git-commit` | Reads the diff and writes a Conventional Commits message that follows the project's commitlint config (emoji by default when there is none); suggests splitting mixed changes | `/git-commit --all` |
-| `git-worktree` | Creates, lists and removes worktrees under `.worktree-<repo>/` next to the repo, optionally carrying over uncommitted changes | `/git-worktree add feature-ui` |
-| `git-rollback` | Rolls a branch back to an earlier version interactively; dry-run by default, asks twice before running reset / revert | `/git-rollback --branch dev` |
-| `git-clean-branches` | Removes merged or stale local / remote branches, with protected branches | `/git-clean-branches --dry-run` |
+| `git-worktree` | Creates, lists and removes worktrees under `<repo>.worktrees/` next to the repo, optionally carrying over uncommitted changes | `/git-worktree add feature-ui` |
+| `git-rollback` | Rolls a branch back to an earlier version: checks for uncommitted changes, makes a backup branch, previews, then runs reset or revert (merge-safe) | `/git-rollback --branch dev` |
+| `git-clean-branches` | Removes merged (including squash / rebase merged) or stale branches; skips worktree-checked-out branches and never deletes on `upstream` | `/git-clean-branches --dry-run` |
 | `gitmoji-commitlint-setup` | Adds commitlint and a husky commit-msg hook to a project, gitmoji style or plain Conventional Commits | "set up gitmoji commit rules for this project" |
 
 ### Data science competitions (comp-kit)

@@ -33,9 +33,9 @@ npx skills update -g -y
 | Skill | 用途 | 示例 |
 |---|---|---|
 | `git-commit` | 看改动生成 Conventional Commits 提交信息，跟随项目的 commitlint 配置（没有配置时默认带 emoji），改动太杂时会建议拆开提交 | `/git-commit --all` |
-| `git-worktree` | 在仓库同级的 `.worktree-<仓库名>/` 下创建、列出、删除 worktree，可以把未提交的改动一起带过去 | `/git-worktree add feature-ui` |
-| `git-rollback` | 交互式回滚分支到某个历史版本，默认只演练（dry-run），确认两次才真正 reset / revert | `/git-rollback --branch dev` |
-| `git-clean-branches` | 清理已合并或很久没动的本地 / 远程分支，可以设保护分支 | `/git-clean-branches --dry-run` |
+| `git-worktree` | 在仓库同级的 `<仓库名>.worktrees/` 下创建、列出、删除 worktree，可以把未提交的改动一起带过去 | `/git-worktree add feature-ui` |
+| `git-rollback` | 把分支回滚到某个历史版本：先查未提交改动、自动建备份分支、预览，再 reset 或 revert（含 merge 提交也能回滚） | `/git-rollback --branch dev` |
+| `git-clean-branches` | 清理已合并（含 squash / rebase 合并）或很久没动的分支，跳过被 worktree 占用的分支，不删 `upstream` 上的分支 | `/git-clean-branches --dry-run` |
 | `gitmoji-commitlint-setup` | 给项目装 commitlint 和 husky 的 commit-msg 钩子，gitmoji 风格和纯 Conventional Commits 二选一 | 「给这个项目配上 gitmoji 提交规范」 |
 
 ### 数据竞赛（comp-kit）

@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Git Kit",
     "shortDescription": "Git 提交规范落地、提交、回滚、分支清理与 worktree 管理。",
-    "longDescription": "Git 工作流工具集：gitmoji-commitlint-setup（为项目落地 gitmoji 或纯 Conventional Commits 的 commitlint + husky 提交校验）、git-commit（只用 Git 分析改动生成规范提交信息）、git-rollback（交互式回滚到历史版本）、git-clean-branches（安全清理已合并或过期分支）、git-worktree（在仓库同级 .worktree-<仓库名>/ 下管理 worktree）。",
+    "longDescription": "Git 工作流工具集：gitmoji-commitlint-setup（为项目落地 gitmoji 或纯 Conventional Commits 的 commitlint + husky 提交校验）、git-commit（只用 Git 分析改动生成规范提交信息）、git-rollback（交互式回滚到历史版本）、git-clean-branches（安全清理已合并或过期分支）、git-worktree（在仓库同级 <仓库名>.worktrees/ 下管理 worktree）。",
     "developerName": "hoobnn",
     "category": "Productivity",
     "capabilities": [
