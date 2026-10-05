@@ -62,12 +62,6 @@ npx skills update -g -y
 |---|---|---|
 | `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI 派活或给第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、用量、花费）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
 
-### 火山方舟（ark-kit）
-
-| Skill | 作用 | 示例 |
-|---|---|---|
-| `seedream` | 调用 Seedream 5.0 生成和编辑图片。lite 负责组图和联网搜索，pro 负责图层拆分、交互编辑和透明背景，参数不兼容时在本地直接报错，图片直接存到本地。需要环境变量 `ARK_API_KEY`。同时提供 MCP 版（`scripts/mcp_server.py`，需要 `uv`），通过插件安装时自动启用 | 「把这张海报拆成图层」 |
-
 ## 支持的 Agent
 
 | Agent | 安装参数 `-a` | 手动调用 |
@@ -114,7 +108,7 @@ grok plugin marketplace add hoobnn/hoobnn-skills
 grok plugin install git-kit@hoobnn-skills
 ```
 
-可选的插件有 `git-kit`、`comp-kit`、`math-modeling`、`agent-relay`、`ark-kit`。
+可选的插件有 `git-kit`、`comp-kit`、`math-modeling`、`agent-relay`。
 
 </details>
 
