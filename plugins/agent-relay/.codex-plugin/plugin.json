@@ -1,0 +1,33 @@
+{
+  "name": "agent-relay",
+  "version": "0.1.0",
+  "description": "在当前 agent 里调用其他 AI 编程 CLI（grok / agy / codex / opencode / pi / hermes / claude）：统一 headless 参数、只读与可写权限、续会话和输出解析，用于派活、第二意见和多模型对比评审。",
+  "author": {
+    "name": "hoobnn",
+    "email": "uhoobnn@ikuyu.com"
+  },
+  "repository": "https://github.com/hoobnn/hoobnn-skills",
+  "keywords": [
+    "multi-agent",
+    "grok",
+    "antigravity",
+    "opencode",
+    "codex-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agent Relay",
+    "shortDescription": "调用 grok / agy / codex / opencode / pi / hermes / claude 等 CLI 派活或给第二意见。",
+    "longDescription": "在当前 agent 里调用其他 AI 编程 CLI（grok / agy / codex / opencode / pi / hermes / claude）：统一 headless 参数、只读与可写权限、续会话和输出解析，用于派活、第二意见和多模型对比评审。 默认只读，--write 才放开写权限；返回统一 JSON（回答、会话 ID、用量、花费），原始输出写入 ~/.local/state/agent-relay。",
+    "developerName": "hoobnn",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "问问 grok 这段代码有什么并发问题",
+      "让 agy 和 opencode 分别评审这个 diff，再对比结论",
+      "接着刚才那个 grok 会话继续"
+    ]
+  }
+}

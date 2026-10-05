@@ -4,11 +4,12 @@
 
 The Agent Skills I use day to day in Claude Code, Codex and opencode. They follow the [Agent Skills](https://agentskills.io) spec and install with `npx skills add`; Antigravity and Grok work too.
 
-There are three groups:
+There are four groups:
 
 - Git workflow: write Conventional Commits messages, manage git worktrees, roll back, clean up branches, and set up gitmoji + commitlint + husky in a project.
 - Data science competitions (Kaggle, Tianchi, DataFountain and similar): repo setup at the start, experiment records, submission quota, retrospectives and defense prep, and coordinating several tasks at once.
 - Math modeling contests (CUMCM, MCM / ICM): modeling, solving in code and writing the paper, with algorithm notes and Word / LaTeX paper templates.
+- Calling other agents: hand a task to, or get a second opinion from, another CLI such as grok, agy, codex, opencode, pi, hermes or claude.
 
 Skill descriptions and prompts are written in Chinese.
 
@@ -57,6 +58,12 @@ These come out of two competitions I worked through: a time-series decision task
 |---|---|
 | `math-modeling` | Three-role workflow for CUMCM / MCM (modeler, programmer, writer), with notes on 7 algorithm families, subagent review, and six helper tools: docx, latex, figure, xlsx, pdf and paper search |
 
+### Calling other agents (agent-relay)
+
+| Skill | What it does | Example |
+|---|---|---|
+| `agent-relay` | Runs grok, agy, codex, opencode, pi, hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, usage, cost). Read-only by default; for agy and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
+
 ## Supported agents
 
 | Agent | `-a` value | Manual call |
@@ -103,7 +110,7 @@ grok plugin marketplace add hoobnn/hoobnn-skills
 grok plugin install git-kit@hoobnn-skills
 ```
 
-Available plugins: `git-kit`, `comp-kit`, `math-modeling`.
+Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
 
 </details>
 

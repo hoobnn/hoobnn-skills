@@ -4,11 +4,12 @@
 
 我自己在 Claude Code、Codex、opencode 里常用的一组 Agent Skills，按 [Agent Skills](https://agentskills.io) 规范写，用 `npx skills add` 安装，也能装进 Antigravity 和 Grok。
 
-目前有三组：
+目前有四组：
 
 - Git 工作流：生成 Conventional Commits 提交信息、管理 git worktree、回滚、清理分支，以及给项目配好 gitmoji + commitlint + husky。
 - 数据竞赛（Kaggle、天池、DataFountain 等）：开赛时的仓库初始化、实验记录、提交额度管理、复盘答辩、多题并行时的总控。
 - 数学建模竞赛（国赛 CUMCM、美赛 MCM / ICM）：建模、写代码求解、写论文三个阶段，带算法资料和 Word / LaTeX 论文模板。
+- 调用其他 agent：在当前 agent 里让 grok、agy、codex、opencode、pi、hermes、claude 等 CLI 干活或给第二意见。
 
 ## 安装
 
@@ -54,6 +55,12 @@ npx skills update -g -y
 | Skill | 用途 |
 |---|---|
 | `math-modeling` | 国赛 / 美赛的三角色流程（建模手、编程手、论文手），带 7 大类算法资料、Subagent 质检，以及 docx、latex、figure、xlsx、pdf、论文检索六个子工具 |
+
+### 调用其他 agent（agent-relay）
+
+| Skill | 作用 | 示例 |
+|---|---|---|
+| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI 派活或给第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、用量、花费）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
 
 ## 支持的 Agent
 
@@ -101,7 +108,7 @@ grok plugin marketplace add hoobnn/hoobnn-skills
 grok plugin install git-kit@hoobnn-skills
 ```
 
-可选的插件有 `git-kit`、`comp-kit`、`math-modeling`。
+可选的插件有 `git-kit`、`comp-kit`、`math-modeling`、`agent-relay`。
 
 </details>
 
