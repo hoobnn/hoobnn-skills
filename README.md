@@ -66,7 +66,7 @@ npx skills update -g -y
 
 | Skill | 作用 | 示例 |
 |---|---|---|
-| `seedream` | 调用 Seedream 5.0 生成和编辑图片。lite 负责组图和联网搜索，pro 负责图层拆分、交互编辑和透明背景，参数不兼容时在本地直接报错，图片直接存到本地。需要环境变量 `ARK_API_KEY` | 「把这张海报拆成图层」 |
+| `seedream` | 调用 Seedream 5.0 生成和编辑图片。lite 负责组图和联网搜索，pro 负责图层拆分、交互编辑和透明背景，参数不兼容时在本地直接报错，图片直接存到本地。需要环境变量 `ARK_API_KEY`。同时提供 MCP 版（`scripts/mcp_server.py`，需要 `uv`），通过插件安装时自动启用 | 「把这张海报拆成图层」 |
 
 ## 支持的 Agent
 

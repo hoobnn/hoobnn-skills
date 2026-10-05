@@ -16,6 +16,7 @@ python3 "<SKILL_ROOT>/scripts/seedream.py" gen [--model pro|lite] [--image P ...
 - 输出一个 JSON：`ok`、`files`（落盘路径）、`layers`（图层拆分时的 z_index / 名称 / 边界框）、`usage`、`errors`（组图里单张失败）、`error`。
 - `--image` 可重复，本地路径会自动转成 Base64，URL 原样传。默认不加水印，`--dry-run` 只校验参数、打印请求体。
 - 调用是同步的，图层拆分和组图可能要一两分钟。
+- 同一套功能也有 MCP 版本：`uv run --script "<SKILL_ROOT>/scripts/mcp_server.py"`，提供一个 `generate_image` 工具，参数和上面的命令行一一对应，图片默认存到 `SEEDREAM_OUT_DIR`（默认 `~/Downloads/seedream`）。客户端已经接入这个 MCP 时直接调工具，不必再跑脚本。
 
 ## 选模型
 

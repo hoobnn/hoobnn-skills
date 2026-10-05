@@ -1,6 +1,6 @@
 {
   "name": "ark-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "调用火山方舟模型的工具集：Seedream 5.0（pro / lite）文生图、多图参考生图、组图、联网搜索生图、图层拆分、交互编辑、透明背景，图片直接落盘。",
   "author": {
     "name": "hoobnn",

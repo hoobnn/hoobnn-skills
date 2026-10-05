@@ -68,7 +68,7 @@ These come out of two competitions I worked through: a time-series decision task
 
 | Skill | What it does | Example |
 |---|---|---|
-| `seedream` | Generates and edits images with Seedream 5.0. lite handles image sets and web search; pro handles layer decomposition, interactive editing and transparent backgrounds. Incompatible options fail locally before any request, and images are saved straight to disk. Needs `ARK_API_KEY` | "split this poster into layers" |
+| `seedream` | Generates and edits images with Seedream 5.0. lite handles image sets and web search; pro handles layer decomposition, interactive editing and transparent backgrounds. Incompatible options fail locally before any request, and images are saved straight to disk. Needs `ARK_API_KEY`. Also ships as an MCP server (`scripts/mcp_server.py`, needs `uv`), enabled automatically when installed as a plugin | "split this poster into layers" |
 
 ## Supported agents
 

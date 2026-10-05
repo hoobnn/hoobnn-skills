@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "seedream": {
+      "command": "uv",
+      "args": ["run", "--script", "${CLAUDE_PLUGIN_ROOT}/skills/seedream/scripts/mcp_server.py"]
+    }
+  }
+}
