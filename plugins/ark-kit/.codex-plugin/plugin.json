@@ -1,0 +1,33 @@
+{
+  "name": "ark-kit",
+  "version": "0.1.0",
+  "description": "调用火山方舟模型的工具集：Seedream 5.0（pro / lite）文生图、多图参考生图、组图、联网搜索生图、图层拆分、交互编辑、透明背景，图片直接落盘。",
+  "author": {
+    "name": "hoobnn",
+    "email": "uhoobnn@ikuyu.com"
+  },
+  "repository": "https://github.com/hoobnn/hoobnn-skills",
+  "keywords": [
+    "volcengine",
+    "ark",
+    "seedream",
+    "image-generation",
+    "codex-skill"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Ark Kit",
+    "shortDescription": "调用火山方舟 Seedream 5.0 生成和编辑图片。",
+    "longDescription": "调用火山方舟模型的工具集：Seedream 5.0（pro / lite）文生图、多图参考生图、组图、联网搜索生图、图层拆分、交互编辑、透明背景，图片直接落盘。 需要环境变量 ARK_API_KEY；以 b64_json 取回结果直接写盘，图层拆分附带 layers.json。",
+    "developerName": "hoobnn",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "用 Seedream 画一张竖版的赛博朋克城市夜景海报",
+      "把这张海报拆成图层",
+      "参考这三张图生成一组 4 张的连贯分镜"
+    ]
+  }
+}

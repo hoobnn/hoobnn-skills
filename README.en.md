@@ -64,6 +64,12 @@ These come out of two competitions I worked through: a time-series decision task
 |---|---|---|
 | `agent-relay` | Runs grok, agy, codex, opencode, pi, hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, usage, cost). Read-only by default; for agy and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
 
+### Volcengine Ark (ark-kit)
+
+| Skill | What it does | Example |
+|---|---|---|
+| `seedream` | Generates and edits images with Seedream 5.0. lite handles image sets and web search; pro handles layer decomposition, interactive editing and transparent backgrounds. Incompatible options fail locally before any request, and images are saved straight to disk. Needs `ARK_API_KEY` | "split this poster into layers" |
+
 ## Supported agents
 
 | Agent | `-a` value | Manual call |
@@ -110,7 +116,7 @@ grok plugin marketplace add hoobnn/hoobnn-skills
 grok plugin install git-kit@hoobnn-skills
 ```
 
-Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
+Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`, `ark-kit`.
 
 </details>
 
