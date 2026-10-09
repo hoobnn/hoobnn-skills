@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · **English**
 
-The Agent Skills I use day to day in Claude Code, Codex and opencode. They follow the [Agent Skills](https://agentskills.io) spec and install with `npx skills add`; Antigravity and Grok work too.
+A set of Agent Skills for Claude Code, Codex and opencode. They follow the [Agent Skills](https://agentskills.io) spec and install with `npx skills add`; Antigravity and Grok are also supported.
 
 There are four groups:
 
@@ -42,7 +42,7 @@ Start a new session afterwards. Describe what you want in plain words and the ag
 
 ### Data science competitions (comp-kit)
 
-These come out of two competitions I worked through: a time-series decision task, and a CV / speech event with seven tasks running in parallel.
+These are distilled from two competitions: a time-series decision task, and a CV / speech event with seven tasks running in parallel.
 
 | Skill | What it does |
 |---|---|
@@ -84,7 +84,7 @@ agy doesn't read `~/.agents/skills` globally. Register it once in `~/.gemini/con
 
 ## Installing from the plugin marketplace
 
-Use this if you want skills to update along with the plugin. Don't install the same agent both ways, or every skill shows up twice.
+Install through the plugin marketplace if you want skills to update with the plugin. Don't install the same agent both ways, or every skill shows up twice.
 
 <details>
 <summary>Commands for Claude Code / Codex / Grok</summary>
@@ -114,7 +114,7 @@ Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
 
 </details>
 
-## Notes for writing skills
+## Conventions for writing skills
 
 - Skills live at `plugins/<plugin>/skills/<name>/SKILL.md`. The frontmatter `name` is lowercase with hyphens and matches the folder name; quote values that start with `[` or `<`, or `npx skills` skips the skill.
 - Don't put a second `SKILL.md` inside a skill folder. Name sub-documents something else (e.g. `GUIDE.md`), or Codex and opencode register them as separate skills.

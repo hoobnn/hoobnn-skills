@@ -2,14 +2,14 @@
 
 **简体中文** · [English](README.en.md)
 
-我自己在 Claude Code、Codex、opencode 里常用的一组 Agent Skills，按 [Agent Skills](https://agentskills.io) 规范写，用 `npx skills add` 安装，也能装进 Antigravity 和 Grok。
+一组适用于 Claude Code、Codex 和 opencode 的 Agent Skills，遵循 [Agent Skills](https://agentskills.io) 规范，通过 `npx skills add` 安装，同时支持 Antigravity 和 Grok。
 
-目前有四组：
+目前包含四组：
 
 - Git 工作流：生成 Conventional Commits 提交信息、管理 git worktree、回滚、清理分支，以及给项目配好 gitmoji + commitlint + husky。
 - 数据竞赛（Kaggle、天池、DataFountain 等）：开赛时的仓库初始化、实验记录、提交额度管理、复盘答辩、多题并行时的总控。
 - 数学建模竞赛（国赛 CUMCM、美赛 MCM / ICM）：建模、写代码求解、写论文三个阶段，带算法资料和 Word / LaTeX 论文模板。
-- 调用其他 agent：在当前 agent 里让 grok、agy、codex、opencode、pi、hermes、claude 等 CLI 干活或给第二意见。
+- 调用其他 agent：在当前 agent 中调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。
 
 ## 安装
 
@@ -24,7 +24,7 @@ npx skills add hoobnn/hoobnn-skills --skill git-worktree -g -a codex -y
 npx skills update -g -y
 ```
 
-装好后开一个新会话。平时直接用自然语言说要做什么，agent 会自己挑对应的 skill；想手动调用就用斜杠命令，比如 `/git-commit`、`/git-worktree add feature-ui`。
+安装后需新开会话。用自然语言描述需求时，agent 会自动选择对应的 skill；也可以通过斜杠命令手动调用，例如 `/git-commit`、`/git-worktree add feature-ui`。
 
 ## Skill 列表
 
@@ -40,15 +40,15 @@ npx skills update -g -y
 
 ### 数据竞赛（comp-kit）
 
-这几个 skill 是从我打过的两轮比赛里总结出来的：一次时间序列决策赛，一次七道题并行的 CV / 语音赛。
+这组 skill 总结自两次参赛经验：一次时间序列决策赛，一次七道题并行的 CV / 语音赛。
 
 | Skill | 用途 |
 |---|---|
 | `comp-init` | 初始化竞赛仓库：目录结构、CLAUDE.md 和 AGENTS.md、官网材料存档、数据审计、验证方案、分数上下界和单次提交能分辨的最小差异 |
-| `comp-experiment` | 实验怎么做才可信：一次只改一个变量、按数据来源分组切折、同口径对照、证据分级；也用来判断离线涨了线上会不会涨 |
+| `comp-experiment` | 保证实验结论可信：一次只改一个变量、按数据来源分组切折、同口径对照、证据分级；也用于判断离线提升能否在线上兑现 |
 | `comp-submit` | 提交管理：提交前用脚本校验、准入门槛、每次提交留证据和回执、每日额度预算、探针提交、B 榜冻结 |
 | `comp-retrospective` | 阶段复盘和答辩：作战手册、被证伪的想法清单、离线和线上分数的对照表、答辩 PPT 和问答准备 |
-| `comp-campaign` | 同时做好几道题时的总控：看板、额度和提交权限、共享机器怎么分、子代理怎么用、夜间值守和唤醒 |
+| `comp-campaign` | 多道题并行时的统筹：看板、额度与提交权限、共享机器分配、子代理使用规范、夜间值守与唤醒 |
 
 ### 数学建模（math-modeling）
 
@@ -60,7 +60,7 @@ npx skills update -g -y
 
 | Skill | 作用 | 示例 |
 |---|---|---|
-| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI 派活或给第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、用量、花费）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
+| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、用量、花费）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
 
 ## 支持的 Agent
 
@@ -82,7 +82,7 @@ agy 全局安装时不读 `~/.agents/skills`，要在 `~/.gemini/config/skills.j
 
 ## 用插件市场安装
 
-想让 skill 跟着插件自动更新，可以走插件市场。同一个 agent 不要两种方式都装，否则同名 skill 会出现两次。
+如需让 skill 随插件自动更新，可以通过插件市场安装。同一个 agent 不要同时使用两种安装方式，否则同名 skill 会重复出现。
 
 <details>
 <summary>Claude Code / Codex / Grok 的安装命令</summary>
@@ -112,7 +112,7 @@ grok plugin install git-kit@hoobnn-skills
 
 </details>
 
-## 写 skill 时要注意
+## 编写 skill 的约定
 
 - skill 放在 `plugins/<plugin>/skills/<name>/SKILL.md`。frontmatter 里的 `name` 用小写加连字符，和目录名一致；值以 `[` 或 `<` 开头时要加引号，不然 `npx skills` 会跳过这个 skill。
 - skill 目录里不要再放第二个 `SKILL.md`，子文档换个名字（比如 `GUIDE.md`），否则 Codex 和 opencode 会把它当成另一个 skill 注册。
