@@ -1,6 +1,8 @@
 <div align="center">
 
-# hoobnn-skills：Claude Code、Codex 通用的 Agent Skills
+# hoobnn-skills
+
+Claude Code、Codex 通用的 Agent Skills，涵盖 Git 工作流、数据竞赛与数学建模。
 
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 

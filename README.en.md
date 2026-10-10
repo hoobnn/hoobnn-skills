@@ -1,6 +1,8 @@
 <div align="center">
 
-# hoobnn-skills: Agent Skills for Claude Code and Codex
+# hoobnn-skills
+
+Agent Skills for Claude Code and Codex, covering Git workflows, data science competitions and mathematical modeling.
 
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
