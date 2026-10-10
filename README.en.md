@@ -122,7 +122,7 @@ Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
 
 ## License
 
-[MIT License](LICENSE), except:
+[MIT](LICENSE) © 2026 hoobnn. Free to use, modify and distribute, provided the copyright notice is kept. Exceptions:
 
 - `plugins/math-modeling/skills/math-modeling/tools/docx`, `tools/pdf` and `tools/xlsx` contain code from Anthropic's official skills; see `LICENSE.txt` in each folder.
 - math-modeling is adapted from [XiaoMaColtAI/math-modeling-skill](https://github.com/XiaoMaColtAI/math-modeling-skill) (MIT License).

@@ -118,9 +118,9 @@ grok plugin install git-kit@hoobnn-skills
 - skill 目录里不要再放第二个 `SKILL.md`，子文档换个名字（比如 `GUIDE.md`），否则 Codex 和 opencode 会把它当成另一个 skill 注册。
 - 需要斜杠命令的功能也写成 skill，不写 `commands/`。
 
-## 许可
+## 许可证
 
-[MIT License](LICENSE)，以下内容除外：
+[MIT](LICENSE) © 2026 hoobnn。可自由使用、修改和分发，需保留版权声明。以下内容除外：
 
 - `plugins/math-modeling/skills/math-modeling/tools/docx`、`tools/pdf`、`tools/xlsx` 里有 Anthropic 官方 skill 的代码，许可见各目录下的 `LICENSE.txt`。
 - math-modeling 改自 [XiaoMaColtAI/math-modeling-skill](https://github.com/XiaoMaColtAI/math-modeling-skill)（MIT License）。
