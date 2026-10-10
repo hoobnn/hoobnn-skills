@@ -1,4 +1,6 @@
-# hoobnn-skills: Agent Skills for Claude Code, Codex and opencode
+# hoobnn-skills: Agent Skills for Claude Code and Codex
+
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 [简体中文](README.md) · **English**
 
@@ -8,12 +10,14 @@ There are four groups:
 
 - Git workflow: write Conventional Commits messages, manage git worktrees, roll back, clean up branches, and set up gitmoji + commitlint + husky in a project.
 - Data science competitions (Kaggle, Tianchi, DataFountain and similar): repo setup at the start, experiment records, submission quota, retrospectives and defense prep, and coordinating several tasks at once.
-- Math modeling contests (CUMCM, MCM / ICM): modeling, solving in code and writing the paper, with algorithm notes and Word / LaTeX paper templates.
+- Math modeling contests (CUMCM, MCM / ICM): modeling, solving in code and writing the paper, with algorithm notes, LaTeX paper templates and Word paper formatting tools.
 - Calling other agents: hand a task to, or get a second opinion from, another CLI such as grok, agy, codex, opencode, pi, hermes or claude.
 
 Skill descriptions and prompts are written in Chinese.
 
 ## Install
+
+### With npx skills
 
 ```bash
 # Install every skill into Claude Code (global)
@@ -21,12 +25,44 @@ npx skills add hoobnn/hoobnn-skills --skill '*' -g -a claude-code -y
 
 # Install a single skill into Codex
 npx skills add hoobnn/hoobnn-skills --skill git-worktree -g -a codex -y
-
-# Update installed skills
-npx skills update -g -y
 ```
 
 Start a new session afterwards. Describe what you want in plain words and the agent picks the matching skill, or call one directly with a slash command such as `/git-commit` or `/git-worktree add feature-ui`.
+
+### From the plugin marketplace
+
+Install through the plugin marketplace if you want skills to update with the plugin. Don't install the same agent both ways, or every skill shows up twice.
+
+Claude Code (entry point becomes `/git-kit:git-commit`):
+
+```text
+/plugin marketplace add hoobnn/hoobnn-skills
+/plugin install git-kit@hoobnn-skills
+```
+
+Codex:
+
+```bash
+codex plugin marketplace add hoobnn/hoobnn-skills
+codex plugin add git-kit@hoobnn-skills
+```
+
+Grok:
+
+```bash
+grok plugin marketplace add hoobnn/hoobnn-skills
+grok plugin install git-kit@hoobnn-skills
+```
+
+Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
+
+### Update
+
+```bash
+npx skills update -g -y
+```
+
+Skills installed from the plugin marketplace update with the plugin.
 
 ## Skills
 
@@ -62,7 +98,7 @@ These are distilled from two competitions: a time-series decision task, and a CV
 
 | Skill | What it does | Example |
 |---|---|---|
-| `agent-relay` | Runs grok, agy, codex, opencode, pi, hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, usage, cost). Read-only by default; for agy and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
+| `agent-relay` | Runs grok, agy, codex, opencode, pi, hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, cost, whether read-only was actually enforced, raw log folder). Read-only by default; for agy and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
 
 ## Supported agents
 
@@ -81,38 +117,6 @@ agy doesn't read `~/.agents/skills` globally. Register it once in `~/.gemini/con
 ```json
 { "entries": [ { "path": "/Users/<you>/.agents/skills" } ] }
 ```
-
-## Installing from the plugin marketplace
-
-Install through the plugin marketplace if you want skills to update with the plugin. Don't install the same agent both ways, or every skill shows up twice.
-
-<details>
-<summary>Commands for Claude Code / Codex / Grok</summary>
-
-Claude Code (entry point becomes `/git-kit:git-commit`):
-
-```
-/plugin marketplace add hoobnn/hoobnn-skills
-/plugin install git-kit@hoobnn-skills
-```
-
-Codex:
-
-```
-codex plugin marketplace add hoobnn/hoobnn-skills
-codex plugin add git-kit@hoobnn-skills
-```
-
-Grok:
-
-```
-grok plugin marketplace add hoobnn/hoobnn-skills
-grok plugin install git-kit@hoobnn-skills
-```
-
-Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
-
-</details>
 
 ## Conventions for writing skills
 

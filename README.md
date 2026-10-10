@@ -1,5 +1,7 @@
 # hoobnn-skills：Claude Code、Codex 通用的 Agent Skills
 
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+
 **简体中文** · [English](README.en.md)
 
 一组适用于 Claude Code、Codex 和 opencode 的 Agent Skills，遵循 [Agent Skills](https://agentskills.io) 规范，通过 `npx skills add` 安装，同时支持 Antigravity 和 Grok。
@@ -8,10 +10,12 @@
 
 - Git 工作流：生成 Conventional Commits 提交信息、管理 git worktree、回滚、清理分支，以及给项目配好 gitmoji + commitlint + husky。
 - 数据竞赛（Kaggle、天池、DataFountain 等）：开赛时的仓库初始化、实验记录、提交额度管理、复盘答辩、多题并行时的总控。
-- 数学建模竞赛（国赛 CUMCM、美赛 MCM / ICM）：建模、写代码求解、写论文三个阶段，带算法资料和 Word / LaTeX 论文模板。
+- 数学建模竞赛（国赛 CUMCM、美赛 MCM / ICM）：建模、写代码求解、写论文三个阶段，带算法资料、LaTeX 论文模板和 Word 论文排版工具。
 - 调用其他 agent：在当前 agent 中调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。
 
 ## 安装
+
+### 用 npx skills 安装
 
 ```bash
 # 把全部 skill 装到 Claude Code（全局）
@@ -19,12 +23,44 @@ npx skills add hoobnn/hoobnn-skills --skill '*' -g -a claude-code -y
 
 # 只装一个 skill 到 Codex
 npx skills add hoobnn/hoobnn-skills --skill git-worktree -g -a codex -y
-
-# 更新已安装的 skill
-npx skills update -g -y
 ```
 
 安装后需新开会话。用自然语言描述需求时，agent 会自动选择对应的 skill；也可以通过斜杠命令手动调用，例如 `/git-commit`、`/git-worktree add feature-ui`。
+
+### 用插件市场安装
+
+如需让 skill 随插件自动更新，可以通过插件市场安装。同一个 agent 不要同时使用两种安装方式，否则同名 skill 会重复出现。
+
+Claude Code（装好后入口是 `/git-kit:git-commit`）：
+
+```text
+/plugin marketplace add hoobnn/hoobnn-skills
+/plugin install git-kit@hoobnn-skills
+```
+
+Codex：
+
+```bash
+codex plugin marketplace add hoobnn/hoobnn-skills
+codex plugin add git-kit@hoobnn-skills
+```
+
+Grok：
+
+```bash
+grok plugin marketplace add hoobnn/hoobnn-skills
+grok plugin install git-kit@hoobnn-skills
+```
+
+可选的插件有 `git-kit`、`comp-kit`、`math-modeling`、`agent-relay`。
+
+### 更新
+
+```bash
+npx skills update -g -y
+```
+
+用插件市场安装的 skill 随插件更新。
 
 ## Skill 列表
 
@@ -58,9 +94,9 @@ npx skills update -g -y
 
 ### 调用其他 agent（agent-relay）
 
-| Skill | 作用 | 示例 |
+| Skill | 用途 | 示例 |
 |---|---|---|
-| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、用量、花费）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
+| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、花费、是否真正只读、原始日志目录）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
 
 ## 支持的 Agent
 
@@ -79,38 +115,6 @@ agy 全局安装时不读 `~/.agents/skills`，要在 `~/.gemini/config/skills.j
 ```json
 { "entries": [ { "path": "/Users/<you>/.agents/skills" } ] }
 ```
-
-## 用插件市场安装
-
-如需让 skill 随插件自动更新，可以通过插件市场安装。同一个 agent 不要同时使用两种安装方式，否则同名 skill 会重复出现。
-
-<details>
-<summary>Claude Code / Codex / Grok 的安装命令</summary>
-
-Claude Code（装好后入口是 `/git-kit:git-commit`）：
-
-```
-/plugin marketplace add hoobnn/hoobnn-skills
-/plugin install git-kit@hoobnn-skills
-```
-
-Codex：
-
-```
-codex plugin marketplace add hoobnn/hoobnn-skills
-codex plugin add git-kit@hoobnn-skills
-```
-
-Grok：
-
-```
-grok plugin marketplace add hoobnn/hoobnn-skills
-grok plugin install git-kit@hoobnn-skills
-```
-
-可选的插件有 `git-kit`、`comp-kit`、`math-modeling`、`agent-relay`。
-
-</details>
 
 ## 编写 skill 的约定
 
