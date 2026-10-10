@@ -1,8 +1,12 @@
+<div align="center">
+
 # hoobnn-skills: Agent Skills for Claude Code and Codex
 
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 [简体中文](README.md) · **English**
+
+</div>
 
 A set of Agent Skills for Claude Code, Codex and opencode. They follow the [Agent Skills](https://agentskills.io) spec and install with `npx skills add`; Antigravity and Grok are also supported.
 

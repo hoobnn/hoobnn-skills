@@ -1,8 +1,12 @@
+<div align="center">
+
 # hoobnn-skills：Claude Code、Codex 通用的 Agent Skills
 
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 **简体中文** · [English](README.en.md)
+
+</div>
 
 一组适用于 Claude Code、Codex 和 opencode 的 Agent Skills，遵循 [Agent Skills](https://agentskills.io) 规范，通过 `npx skills add` 安装，同时支持 Antigravity 和 Grok。
 
