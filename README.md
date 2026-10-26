@@ -17,7 +17,7 @@ Claude Code、Codex 通用的 Agent Skills，涵盖 Git 工作流、数据竞赛
 - Git 工作流：生成 Conventional Commits 提交信息、管理 git worktree、回滚、清理分支，以及给项目配好 gitmoji + commitlint + husky。
 - 数据竞赛（Kaggle、天池、DataFountain 等）：开赛时的仓库初始化、实验记录、提交额度管理、复盘答辩、多题并行时的总控。
 - 数学建模竞赛（国赛 CUMCM、美赛 MCM / ICM）：建模、写代码求解、写论文三个阶段，带算法资料、LaTeX 论文模板和 Word 论文排版工具。
-- 调用其他 agent：在当前 agent 中调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。
+- 调用其他 agent：在当前 agent 中调用 grok、agy、codex、opencode、pi、mcode（MiniMax Code）、hermes、claude 等 CLI，委派任务或获取第二意见。
 
 ## 安装
 
@@ -102,7 +102,7 @@ npx skills update -g -y
 
 | Skill | 用途 | 示例 |
 |---|---|---|
-| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、hermes、claude 等 CLI，委派任务或获取第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、花费、是否真正只读、原始日志目录）。默认只读，agy 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
+| `agent-relay` | 在当前 agent 里调用 grok、agy、codex、opencode、pi、mcode（MiniMax Code）、hermes、claude 等 CLI，委派任务或获取第二意见。统一处理各家的 headless 参数、只读 / 可写权限、续会话和输出解析，返回一个 JSON（回答、会话 ID、花费、是否真正只读、原始日志目录）。默认只读，agy、mcode 和 hermes 的只读只能靠 prompt 约束 | 「问问 grok 这段代码有什么并发问题」 |
 
 ## 支持的 Agent
 
@@ -114,7 +114,7 @@ npx skills update -g -y
 | Grok Build | `grok` | `/git-commit` |
 | Antigravity CLI（agy） | `antigravity-cli` | `/git-commit` |
 
-`-a '*'` 会装到 `npx skills` 支持的所有 agent。全局安装时文件放在 `~/.agents/skills`，Claude Code 和 Grok 通过软链读同一份。
+`-a '*'` 会装到 `npx skills` 支持的所有 agent。全局安装时文件放在 `~/.agents/skills`，Claude Code 和 Grok 通过软链读同一份。pi 和 MiniMax Code（mcode）会直接扫描 `~/.agents/skills`，不需要单独的 `-a`。
 
 agy 全局安装时不读 `~/.agents/skills`，要在 `~/.gemini/config/skills.json` 里登记一次（写绝对路径，`~` 不会展开）：
 

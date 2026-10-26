@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""在一个 agent 里调用另一个 agent CLI（grok / agy / codex / opencode / pi / hermes / claude）。
+"""在一个 agent 里调用另一个 agent CLI（grok / agy / codex / opencode / pi / mcode / hermes / claude）。
 
 每家 CLI 的 headless 参数、权限开关、续会话方式和输出格式都不一样，这里统一成：
 
@@ -28,7 +28,7 @@ from pathlib import Path
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "agent-relay"
 
 # 只读时 grok / pi / claude 用工具白名单，codex 用沙箱，opencode 用内置的 plan agent。
-# agy 和 hermes 没有能拦住写操作的开关（plan 模式、--sandbox、默认权限实测都会写文件），
+# agy、mcode 和 hermes 没有能拦住写操作的开关（plan 模式、--sandbox、默认权限实测都会写文件），
 # 结果里 read_only_enforced=false，要不要在 prompt 里约束由调用方决定。
 
 
@@ -142,10 +142,10 @@ def parse_codex(raw, a, sid):
 def build_opencode(a, prompt):
     cmd = ["opencode", "run", "--format", "json"]
     cmd += ["--auto"] if a.write else ["--agent", "plan"]
+    if a.effort and not a.model:
+        sys.exit("opencode 的推理强度写在模型名后面（provider/model#variant），--effort 要和 --model 一起给")
     if a.model:
-        cmd += ["-m", a.model]
-    if a.effort:
-        cmd += ["--variant", a.effort]
+        cmd += ["-m", f"{a.model}#{a.effort}" if a.effort else a.model]
     if a.resume:
         cmd += ["-s", a.resume]
     cmd.append(prompt)
@@ -192,6 +192,32 @@ def parse_pi(raw, a, sid):
         "session_id": sid,
         "cost_usd": cost.get("total"),
         "ok": bool(text) and msg.get("stopReason") not in ("error", "aborted"),
+    }
+
+
+def build_mcode(a, prompt):
+    cmd = ["mcode", "exec", "--output-format", "json", "--timeout", f"{max(a.timeout - 30, 60)}s"]
+    if a.write:
+        cmd += ["--permission", "full"]
+    if a.model:
+        cmd += ["--model", a.model]
+    if a.effort:
+        cmd += ["--effort", a.effort]
+    if a.resume:
+        cmd += ["--session", a.resume]
+    cmd.append(prompt)
+    return cmd, a.write, None
+
+
+def parse_mcode(raw, a, sid):
+    d = _json_doc(raw)
+    text = (d.get("output") or "").strip()
+    return {
+        "text": text or None,
+        "session_id": d.get("sessionId") or a.resume,
+        "cost_usd": None,  # 只给 token 数
+        "ok": d.get("status") == "succeeded" and bool(text),
+        "error": d.get("error"),
     }
 
 
@@ -257,6 +283,7 @@ ADAPTERS = {
     "codex": (build_codex, parse_codex),
     "opencode": (build_opencode, parse_opencode),
     "pi": (build_pi, parse_pi),
+    "mcode": (build_mcode, parse_mcode),
     "hermes": (build_hermes, parse_hermes),
     "claude": (build_claude, parse_claude),
 }

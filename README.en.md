@@ -17,7 +17,7 @@ There are four groups:
 - Git workflow: write Conventional Commits messages, manage git worktrees, roll back, clean up branches, and set up gitmoji + commitlint + husky in a project.
 - Data science competitions (Kaggle, Tianchi, DataFountain and similar): repo setup at the start, experiment records, submission quota, retrospectives and defense prep, and coordinating several tasks at once.
 - Math modeling contests (CUMCM, MCM / ICM): modeling, solving in code and writing the paper, with algorithm notes, LaTeX paper templates and Word paper formatting tools.
-- Calling other agents: hand a task to, or get a second opinion from, another CLI such as grok, agy, codex, opencode, pi, hermes or claude.
+- Calling other agents: hand a task to, or get a second opinion from, another CLI such as grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes or claude.
 
 Skill descriptions and prompts are written in Chinese.
 
@@ -104,7 +104,7 @@ These are distilled from two competitions: a time-series decision task, and a CV
 
 | Skill | What it does | Example |
 |---|---|---|
-| `agent-relay` | Runs grok, agy, codex, opencode, pi, hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, cost, whether read-only was actually enforced, raw log folder). Read-only by default; for agy and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
+| `agent-relay` | Runs grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, cost, whether read-only was actually enforced, raw log folder). Read-only by default; for agy, mcode and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
 
 ## Supported agents
 
@@ -116,7 +116,7 @@ These are distilled from two competitions: a time-series decision task, and a CV
 | Grok Build | `grok` | `/git-commit` |
 | Antigravity CLI (agy) | `antigravity-cli` | `/git-commit` |
 
-`-a '*'` installs into every agent `npx skills` supports. A global install keeps the files in `~/.agents/skills`; Claude Code and Grok read the same copy through symlinks.
+`-a '*'` installs into every agent `npx skills` supports. A global install keeps the files in `~/.agents/skills`; Claude Code and Grok read the same copy through symlinks. pi and MiniMax Code (mcode) scan `~/.agents/skills` directly and need no `-a` of their own.
 
 agy doesn't read `~/.agents/skills` globally. Register it once in `~/.gemini/config/skills.json` (use an absolute path; `~` is not expanded):
 
