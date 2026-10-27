@@ -17,7 +17,7 @@ There are four groups:
 - Git workflow: write Conventional Commits messages, manage git worktrees, roll back, clean up branches, and set up gitmoji + commitlint + husky in a project.
 - Data science competitions (Kaggle, Tianchi, DataFountain and similar): repo setup at the start, experiment records, submission quota, retrospectives and defense prep, and coordinating several tasks at once.
 - Math modeling contests (CUMCM, MCM / ICM): modeling, solving in code and writing the paper, with algorithm notes, LaTeX paper templates and Word paper formatting tools.
-- Calling other agents: hand a task to, or get a second opinion from, another CLI such as grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes or claude.
+- Calling other agents: hand a task to, or get a second opinion from, another agent such as grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes or claude over ACP.
 
 Skill descriptions and prompts are written in Chinese.
 
@@ -104,7 +104,7 @@ These are distilled from two competitions: a time-series decision task, and a CV
 
 | Skill | What it does | Example |
 |---|---|---|
-| `agent-relay` | Runs grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes or claude from inside the current agent to delegate a task or get a second opinion. Handles each CLI's headless flags, read-only / write permissions, session resume and output parsing, and returns one JSON object (answer, session ID, cost, whether read-only was actually enforced, raw log folder). Read-only by default; for agy, mcode and hermes read-only is only a prompt instruction | "ask grok whether this code has race conditions" |
+| `agent-relay` | Talks to grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes or claude over ACP (following the v2 draft, with v1 fallback) from inside the current agent to delegate a task, get a second opinion or compare several agents in parallel. Handles version negotiation, permission replies, model and reasoning effort, attachments (files and images), questions the agent asks back, session resume and output parsing, and returns one JSON object (answer, session ID, cost, protocol version, files changed, commands run, raw log folder, plus the questions when the agent asks back). A run that goes silent for too long is treated as stuck and ended early. Permissions follow each agent's own local config; operations it asks about are approved by default, or can all be denied | "ask grok whether this code has race conditions" |
 
 ## Supported agents
 
