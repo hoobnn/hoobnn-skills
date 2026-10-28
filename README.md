@@ -17,7 +17,7 @@ Claude Code、Codex 通用的 Agent Skills，涵盖 Git 工作流、数据竞赛
 - Git 工作流：生成 Conventional Commits 提交信息、管理 git worktree、回滚、清理分支，以及给项目配好 gitmoji + commitlint + husky。
 - 数据竞赛（Kaggle、天池、DataFountain 等）：开赛时的仓库初始化、实验记录、提交额度管理、复盘答辩、多题并行时的总控。
 - 数学建模竞赛（国赛 CUMCM、美赛 MCM / ICM）：建模、写代码求解、写论文三个阶段，带算法资料、LaTeX 论文模板和 Word 论文排版工具。
-- 调用其他 agent：通过 ACP 在当前 agent 中调用 grok、agy、codex、opencode、pi、mcode（MiniMax Code）、hermes、claude，委派任务或获取第二意见。
+- 调用其他 agent：通过 ACP 在当前 agent 中调用 grok、agy、codex、opencode、pi、mcode（MiniMax Code）、hermes、dsh（DeepSeek Harness）、claude，委派任务或获取第二意见。
 
 ## 安装
 
@@ -102,7 +102,7 @@ npx skills update -g -y
 
 | Skill | 用途 | 示例 |
 |---|---|---|
-| `agent-relay` | 通过 ACP（跟随 v2 草案，兼容 v1）在当前 agent 里调用 grok、agy、codex、opencode、pi、mcode（MiniMax Code）、hermes、claude，委派任务、获取第二意见或多家并行对比。统一处理版本协商、权限应答、模型与推理强度、附件（文件、图片）、对方的反问、续会话和输出解析，返回一个 JSON（回答、会话 ID、花费、协议版本、改了哪些文件、跑了哪些命令、原始日志目录，对方反问时附上问题），长时间没动静会判定卡住提前结束。权限沿用各家本机配置，要问的操作默认代为放行，也可以一律拒绝 | 「问问 grok 这段代码有什么并发问题」 |
+| `agent-relay` | 通过 ACP（跟随 v2 草案，兼容 v1）在当前 agent 里调用 grok、agy、codex、opencode、pi、mcode（MiniMax Code）、hermes、dsh（DeepSeek Harness）、claude，委派任务、获取第二意见或多家并行对比。统一处理版本协商、权限应答、模型与推理强度、附件（文件、图片）、对方的反问、续会话和输出解析，返回一个 JSON（回答、会话 ID、花费、协议版本、改了哪些文件、跑了哪些命令、原始日志目录，对方反问时附上问题），长时间没动静会判定卡住提前结束。权限沿用各家本机配置，要问的操作默认代为放行，也可以一律拒绝 | 「问问 grok 这段代码有什么并发问题」 |
 
 ## 支持的 Agent
 

@@ -1,7 +1,7 @@
 {
   "name": "agent-relay",
-  "version": "0.2.0",
-  "description": "通过 ACP（Agent Client Protocol，跟随 v2 草案并兼容 v1）在当前 agent 里调用其他 AI 编程 agent（grok / agy / codex / opencode / pi / mcode / hermes / claude）：统一版本协商、权限应答、模型与推理强度、附件、反问、续会话和输出解析，报告改动的文件和执行的命令，用于派活、第二意见和多模型并行对比评审。",
+  "version": "0.3.0",
+  "description": "通过 ACP（Agent Client Protocol，跟随 v2 草案并兼容 v1）在当前 agent 里调用其他 AI 编程 agent（grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude）：统一版本协商、权限应答、模型与推理强度、附件、反问、续会话和输出解析，报告改动的文件和执行的命令，用于派活、第二意见和多模型并行对比评审。",
   "author": {
     "name": "hoobnn",
     "email": "uhoobnn@ikuyu.com"
@@ -13,13 +13,14 @@
     "antigravity",
     "opencode",
     "minimax",
+    "deepseek",
     "codex-skill"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Agent Relay",
-    "shortDescription": "通过 ACP 调用 grok / agy / codex / opencode / pi / mcode / hermes / claude 等 agent 派活或给第二意见。",
-    "longDescription": "通过 ACP（Agent Client Protocol，跟随 v2 草案并兼容 v1）在当前 agent 里调用其他 AI 编程 agent（grok / agy / codex / opencode / pi / mcode / hermes / claude）：统一版本协商、权限应答、模型与推理强度、附件、反问、续会话和输出解析，报告改动的文件和执行的命令，用于派活、第二意见和多模型并行对比评审。 权限沿用各家本机配置，要问的操作默认代为放行，也可一律拒绝；返回统一 JSON（回答、会话 ID、花费、协议版本，对方反问时附上问题），完整 JSON-RPC 往来写入 ~/.local/state/agent-relay。",
+    "shortDescription": "通过 ACP 调用 grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude 等 agent 派活或给第二意见。",
+    "longDescription": "通过 ACP（Agent Client Protocol，跟随 v2 草案并兼容 v1）在当前 agent 里调用其他 AI 编程 agent（grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude）：统一版本协商、权限应答、模型与推理强度、附件、反问、续会话和输出解析，报告改动的文件和执行的命令，用于派活、第二意见和多模型并行对比评审。 权限沿用各家本机配置，要问的操作默认代为放行，也可一律拒绝；返回统一 JSON（回答、会话 ID、花费、协议版本，对方反问时附上问题），完整 JSON-RPC 往来写入 ~/.local/state/agent-relay。",
     "developerName": "hoobnn",
     "category": "Productivity",
     "capabilities": [

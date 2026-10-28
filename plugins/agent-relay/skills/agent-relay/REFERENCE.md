@@ -22,6 +22,7 @@
 | pi-acp 0.0.34（pi 1.4.0） | `npx pi-acp@0.0.34` | v1 | 否，发链接 |
 | mcode 0.6.13 | `mcode acp` | v1 | 否，发链接 |
 | hermes 0.22.5 | `hermes acp` | v1 | 否，发链接 |
+| dsh 0.2.1-rc.2（deepseek-harness-acp 0.0.1） | `dsh --profile acp` | v1 | 否，发链接 |
 | claude-agent-acp 0.97.0 | `npx @agentclientprotocol/claude-agent-acp@0.97.0` | v2 | 是 |
 
 权限沿用各家本机配置：relay 不切模式，agent 按自己的配置决定哪些操作要问。问到时 `--asks allow` 选 `allow_once` / `allow_always`，`--asks deny` 选 `reject_once` / `reject_always`，没有对应选项时回 `cancelled`，所以不会卡在等确认上。实测本机配置下会来问的有 agy（建文件）和 hermes（改文件），其余几家按各自配置直接执行。要彻底限制某家能做什么，改它自己的配置。
@@ -40,6 +41,7 @@
 - claude 用 ACP 时默认模型是 opus，一次 check 大约 0.5 美元，日常可传 `--model sonnet` / `haiku`。
 - opencode 的模型 config option 有两百多个取值，同名模型分属多个 provider（`magpie/auto/...`、`minimax/...`），只写末段会有歧义，要写全。
 - hermes 没有 config option，模型走 v1 的 unstable `session/set_model`，没有推理强度选项。
+- dsh 的模型取值是 JSON 数组字符串 `["provider","model"]`，`--model` 按 `provider/model` 匹配，可只写 `model` 部分（如 `auto/deepseek-v4-pro`）；只写 `deepseek-v4-pro` 会同时命中多个 provider。ACP 会话的默认模型取自 `acp` 插件自己的 `provider` / `model`（模板里是 `deepseek-official`），不读其它 profile 用的 `agent-default-model`，要改默认就在 `$DSH_HOME/profiles/acp/cordis.patch.yml` 里对 `id: acp` 打补丁。默认模型不收图片时，图片附件会直接报错。
 - grok 的 `set_config_option` 只接受字符串取值，布尔选项还没实现。
 - npx 拉起的适配器是 ACP server，不认 `--version` 之类参数，会一直等 stdin。第一次要下载，`check` 每次调用默认 300 秒，首次可能不够，先跑一次 `options` 预热。
 - 超时要杀整棵进程树：agent 会把 shell 命令放进新的会话，只杀进程组会留下孤儿进程。
@@ -51,4 +53,4 @@
 
 ## 升级钉住的适配器
 
-`relay.py outdated` 拉注册表（`cdn.agentclientprotocol.com/registry/v1/latest/registry.json`，默认的 Python-urllib UA 会被拒，脚本带了自己的 UA），对比 codex、pi、claude 的 npx 包版本和 agy 的二进制版本，有新版时给出替换值：npx 是新的 `cmd`，agy 是新的 `AGY_ACP`（各平台归档、sha256、启动参数，linux 要带 `--uid=`）。改完跑 `check`，agy 还要重新 `install agy`。grok、opencode、mcode、hermes 用的是本机 CLI 自带的 ACP，跟着它们自己的更新走，注册表里的版本也不准。
+`relay.py outdated` 拉注册表（`cdn.agentclientprotocol.com/registry/v1/latest/registry.json`，默认的 Python-urllib UA 会被拒，脚本带了自己的 UA），对比 codex、pi、claude 的 npx 包版本和 agy 的二进制版本，有新版时给出替换值：npx 是新的 `cmd`，agy 是新的 `AGY_ACP`（各平台归档、sha256、启动参数，linux 要带 `--uid=`）。改完跑 `check`，agy 还要重新 `install agy`。grok、opencode、mcode、hermes、dsh 用的是本机 CLI 自带的 ACP，跟着它们自己的更新走，注册表里的版本也不准。

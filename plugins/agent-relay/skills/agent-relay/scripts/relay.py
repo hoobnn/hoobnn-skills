@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""通过 ACP（Agent Client Protocol）调用另一个 agent：grok / agy / codex / opencode / pi / mcode / hermes / claude。
+"""通过 ACP（Agent Client Protocol）调用另一个 agent：grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude。
 
 relay 是一个 stdio ACP 客户端：起 agent 子进程，按 ACP v2 草案发起版本协商（请求 2，对端只会 v1 时回落到 v1），
 新建或续接会话、按 config option 切模型 / 推理强度、发 prompt（可带文件和图片），再把结果统一成一个 JSON。
@@ -98,6 +98,7 @@ AGENTS = {
     "pi": {"cmd": ["npx", "-y", "pi-acp@0.0.34"], "registry": "pi-acp"},
     "mcode": {"cmd": ["mcode", "acp"]},
     "hermes": {"cmd": ["hermes", "acp"]},
+    "dsh": {"cmd": ["dsh", "--profile", "acp"]},
     "claude": {"cmd": ["npx", "-y", "@agentclientprotocol/claude-agent-acp@0.97.0"], "registry": "claude-acp"},
 }
 
@@ -615,18 +616,28 @@ def _flat_values(opt):
     return vals
 
 
+def _flat(value):
+    """dsh 的模型取值是 JSON 数组 ["provider","model"]，摊平成 provider/model 再比较。"""
+    try:
+        parts = json.loads(value)
+    except ValueError:
+        return value
+    return "/".join(parts) if isinstance(parts, list) and all(isinstance(p, str) for p in parts) else value
+
+
 def _match(wanted, opt):
     """按 value 精确、name 精确、value 后缀、唯一子串的顺序匹配用户写的模型 / 强度，返回 (取值, 候选)。"""
     pairs = []
     for o in opt.get("options") or []:
         pairs += [(x.get("value"), x.get("name") or "") for x in (o["options"] if "options" in o else [o])]
+    flat = {v: _flat(v) for v, _ in pairs}
     w = wanted.lower()
-    for test in (lambda v, n: v == wanted, lambda v, n: n.lower() == w,
-                 lambda v, n: v.lower().endswith("/" + w) or v.lower().endswith("~" + w)):
+    for test in (lambda v, n: wanted in (v, flat[v]), lambda v, n: n.lower() == w,
+                 lambda v, n: flat[v].lower().endswith("/" + w) or flat[v].lower().endswith("~" + w)):
         hits = [v for v, n in pairs if test(v, n)]
         if len(hits) == 1:
             return hits[0], hits
-    hits = [v for v, n in pairs if w in v.lower() or w in n.lower()]
+    hits = [v for v, n in pairs if w in flat[v].lower() or w in n.lower()]
     return (hits[0] if len(hits) == 1 else None), hits
 
 
@@ -939,7 +950,7 @@ def cmd_install(a):
 
 
 def cmd_outdated(a):
-    """对照 ACP 注册表看钉住的适配器；本机自带 ACP 的 CLI（grok / opencode / mcode / hermes）由它们自己升级。"""
+    """对照 ACP 注册表看钉住的适配器；本机自带 ACP 的 CLI（grok / opencode / mcode / hermes / dsh）由它们自己升级。"""
     req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent": f"agent-relay/{CLIENT_INFO['version']}"})
     reg = json.loads(urllib.request.urlopen(req, timeout=60).read())  # 默认的 Python-urllib UA 会被 CDN 拒
     entries = {e["id"]: e for e in reg.get("agents") or []}
