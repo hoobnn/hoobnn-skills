@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "agent-relay",
   "description": "通过 ACP（Agent Client Protocol，跟随 v2 草案并兼容 v1）在当前 agent 里调用其他 AI 编程 agent（grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude）：统一版本协商、权限应答、模型与推理强度、附件、反问、续会话和输出解析，报告改动的文件和执行的命令，用于派活、第二意见和多模型并行对比评审。",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "hoobnn",
     "email": "uhoobnn@ikuyu.com"

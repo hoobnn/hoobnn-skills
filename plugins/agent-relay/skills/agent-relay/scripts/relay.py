@@ -15,8 +15,8 @@ agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则�
     relay.py outdated               # 对照 ACP 注册表，列出钉住的适配器有没有新版本
 
 run 只往 stdout 打印一个 JSON 对象（多家时是数组，每项多一个 cli）：
-    {ok, text, session_id, cost_usd, error, log, protocol_version, stop_reason,
-     files_changed, commands[, permissions][, questions][, steps]}
+    {ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
+     files_changed, timing, commands[, commits][, permissions][, questions][, steps]}
 完整的 JSON-RPC 往来写到 log 目录的 acp.jsonl；status.json 是给界面看的进度快照（见 Session.write_status）。
 只依赖 Python 3 标准库。
 """
@@ -29,6 +29,7 @@ import mimetypes
 import os
 import platform
 import queue
+import re
 import shutil
 import signal
 import struct
@@ -907,6 +908,18 @@ def _files_changed(before, after, reported, cwd):
     return out
 
 
+def _error_kind(error):
+    """按错误全文分类，额度优先于限流。"""
+    if not error:
+        return None
+    patterns = (
+        ("quota", r"usage limit|quota|insufficient[_ ]?(balance|credit|funds)|credit balance|额度|余额不足|限额"),
+        ("rate_limit", r"rate[ _-]?limit|too many requests|\b429\b"),
+        ("auth", r"authenticat|unauthori[sz]ed|invalid api key|api key.{0,40}invalid|\b401\b"),
+    )
+    return next((kind for kind, pattern in patterns if re.search(pattern, error, re.IGNORECASE)), "error")
+
+
 def execute(a, prompt, git_diff=True):
     """跑一轮，返回统一结果。git_diff=False 时只按工具调用统计改动（多家并发跑同一目录时互相分不清）。"""
     cwd = Path(a.cwd or os.getcwd()).resolve()
@@ -919,22 +932,24 @@ def execute(a, prompt, git_diff=True):
     s.git_diff, s.head = git_diff, head_before
     s.status_path, s.prompt_head = run_dir / "status.json", " ".join(prompt.split())[:200]
     s.write_status("starting", force=True)
-    error = None
+    error = error_kind = None
     try:
         s.start(run_dir)
         s.open()
         s.configure()
         s.prompt(prompt, deadline)
     except TimeoutError:
-        error = f"超过 {a.timeout}s 被终止"
+        error, error_kind = f"超过 {a.timeout}s 被终止", "timeout"
         if s.conn:
             s.cancel()
     except IdleError:
         error = f"连续 {a.idle_timeout}s 没有任何输出、也没有工具在跑，判定卡住，已取消；会话还在，可以重跑或续接"
+        error_kind = "idle"
         if s.conn:
             s.cancel()
     except StallError:
         error = f"连续 {a.work_timeout}s 只有思考或文字、没有调用工具，判定空转，已取消；会话还在，可以续接并要求先动手"
+        error_kind = "stalled"
         if s.conn:
             s.cancel()
     except (RpcError, RuntimeError) as e:
@@ -953,6 +968,7 @@ def execute(a, prompt, git_diff=True):
 
     if s.questions:
         error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
+        error_kind = "asked"
     if not error and s.turn_error:
         error = s.turn_error
     if not error and s.stop_reason not in (None, "end_turn", "max_tokens", "max_turn_requests"):
@@ -962,13 +978,16 @@ def execute(a, prompt, git_diff=True):
         error = f"{error}；stderr：{tail}" if tail else error
 
     text = s.text()
+    final_error = error or (None if text else "agent 没有返回文本")
+    error_kind = error_kind or _error_kind(final_error)
     commits, committed_paths = git_info or (None, set())
     result = {
         "ok": not error and bool(text),
         "text": text,
         "session_id": s.sid,
         "cost_usd": s.cost,
-        "error": error or (None if text else "agent 没有返回文本"),
+        "error": final_error,
+        "error_kind": error_kind,
         "log": str(run_dir),
         "protocol_version": s.version,
         "stop_reason": s.stop_reason,
@@ -986,7 +1005,7 @@ def execute(a, prompt, git_diff=True):
         result["steps"] = s.full_steps()
     (run_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     s.write_status("asked" if s.questions else "done" if result["ok"] else "failed", force=True,
-                   ok=result["ok"], error=result["error"], files_changed=len(result["files_changed"]),
+                   ok=result["ok"], error=result["error"], error_kind=result["error_kind"], files_changed=len(result["files_changed"]),
                    commits=len(result.get("commits", [])), cost_usd=s.cost, ended=round(time.time(), 3))
     return result
 
