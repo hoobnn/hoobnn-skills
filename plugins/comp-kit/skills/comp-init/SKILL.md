@@ -1,7 +1,7 @@
 ---
 name: comp-init
 description: >-
-  初始化一个数据竞赛 / 算法竞赛参赛仓库：标准目录布局、CLAUDE.md + AGENTS.md 双入口、docs 知识库模板、
+  初始化一个数据竞赛 / 算法竞赛参赛仓库：标准目录布局、AGENTS.md 单一入口、docs 知识库模板、
   校验器与门禁脚手架，并完成开赛期动作（官网材料存档、赛程从规则正文读取、数据审计与验证协议、
   上下界与单步分辨率、管道验证提交）。当用户说「新开一个比赛项目」「初始化竞赛仓库」「参加 Kaggle /
   天池 / DataFountain / AI4S / 讯飞等比赛帮我搭好项目」「把比赛官网材料整理进仓库」时使用。
@@ -33,7 +33,7 @@ description: >-
 ## 2. 布局与入口文件
 
 ```
-├── CLAUDE.md / AGENTS.md   # 双入口，内容同步（模板：references/CLAUDE.md.template）
+├── AGENTS.md             # 唯一入口，Claude Code 与 Codex 共读（模板：references/AGENTS.md.template）；不建 CLAUDE.md
 ├── docs/                   # requirements / competition-rules / faq / data-files / source-material /
 │                           # experiment-log / working-notes / freeze-checklist（模板：references/docs-templates.md）
 ├── metadata/               # 官网原文、公告截图、榜单快照
@@ -46,8 +46,8 @@ description: >-
 入口文件是每个代理开工必读的第一份文件，**约束性规则写在这里**（约束 → 入口文件；实验事实 →
 experiment-log；当前状态 → working-notes）。价值密度最高的两节是「关键约束（容易踩坑）」与
 「提交准入门禁」。入口文件纪律：改动纯增量并 `git diff` 逐行确认；不引用会漂移的章节号，用脚本路径 +
-判据数值；补完后验证引用的脚本与文档真实存在，坏指针比没指针更糟。AGENTS.md 与 CLAUDE.md 只在开头
-一句「提供给 Claude Code / Codex」上不同，同步时保留这一处差异。
+判据数值；补完后验证引用的脚本与文档真实存在，坏指针比没指针更糟。只写 AGENTS.md：仓库里一旦有 CLAUDE.md，Claude Code
+就只读 CLAUDE.md、不再读 AGENTS.md，两份并存会漂移。
 
 ## 3. 数据审计与验证协议
 
@@ -79,7 +79,7 @@ experiment-log；当前状态 → working-notes）。价值密度最高的两节
 
 ## 完成标准
 
-- [ ] 布局、.gitignore、git 初始化；CLAUDE.md 与 AGENTS.md 同步，含评分公式、关键约束、准入门禁、执行环境约束。
+- [ ] 布局、.gitignore、git 初始化；AGENTS.md（不建 CLAUDE.md）含评分公式、关键约束、准入门禁、执行环境约束。
 - [ ] 官网材料存档；requirements / competition-rules（正文口径赛程、冻结、复现环境）/ faq 成稿。
 - [ ] 数据审计完成，分组结构与验证协议写入入口文件与日志。
 - [ ] 下界、oracle、baseline、单步分辨率四个数有数；第 4 节列出的脚本已拷进 `src/` 且 baseline 产物全 PASS。

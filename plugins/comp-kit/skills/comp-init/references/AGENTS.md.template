@@ -1,10 +1,9 @@
-# CLAUDE.md
+# AGENTS.md
 
-<!-- 本文件与 AGENTS.md 内容保持同步：修改任一份时同步另一份，但保留下一行「Claude Code / Codex」的措辞差异。 -->
+<!-- 唯一入口文件：Claude Code（无 CLAUDE.md 时读 AGENTS.md，≥2.1.277）与 Codex 都读这一份，不要再建 CLAUDE.md，否则 Claude Code 会改读 CLAUDE.md、忽略本文件。 -->
 <!-- 入口文件纪律：约束性规则写在这里；改动纯增量并 git diff 逐行确认；不引用会漂移的章节号，用脚本路径 + 判据数值。 -->
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-<!-- AGENTS.md 版此行改为：This file provides guidance to Codex when working with code in this repository. -->
+This file provides guidance to AI coding agents (Claude Code, Codex) when working with code in this repository.
 
 ## 项目背景
 

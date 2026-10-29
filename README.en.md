@@ -88,7 +88,7 @@ These are distilled from two competitions: a time-series decision task, and a CV
 
 | Skill | What it does |
 |---|---|
-| `comp-init` | Sets up a competition repo: layout, CLAUDE.md and AGENTS.md, archived rules and materials, data audit, validation scheme, score bounds and the smallest difference one submission can resolve |
+| `comp-init` | Sets up a competition repo: layout, an AGENTS.md entry file, archived rules and materials, data audit, validation scheme, score bounds and the smallest difference one submission can resolve |
 | `comp-experiment` | Keeps experiments trustworthy: one variable at a time, folds grouped by data source, like-for-like baselines, graded evidence; also for judging whether an offline gain will show up on the leaderboard |
 | `comp-submit` | Submission management: scripted checks before submitting, entry gates, evidence and receipts per submission, daily quota budget, probe submissions, B-leaderboard freeze |
 | `comp-retrospective` | Retrospectives and defense prep: playbook, list of disproved ideas, offline vs. leaderboard calibration, slides and Q&A |
