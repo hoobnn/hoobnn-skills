@@ -29,9 +29,23 @@
 
 ## 改动统计与卡住判定
 
-- 各家上报工具调用的方式差别很大：codex、claude 常用 shell 写文件，工具调用只有 `kind: execute` 和命令，没有文件路径；mcode 先发一串空的 `tool_call_update` 再补内容；hermes 的路径是相对路径，审批还会另起一个只有状态的工具调用。所以 `files_changed` 以 git 工作区前后快照为主（`status --porcelain -uall` 里每个文件的内容哈希，比对前后差异），再并上 `kind` 为 edit / delete / move 且已完成的工具调用里的 `locations`、v1 diff 的 `path`、v2 diff 的 `changes`。不是 git 仓库时只有后者。
+- 各家上报工具调用的方式差别很大：codex、claude 常用 shell 写文件，工具调用只有 `kind: execute` 和命令，没有文件路径；mcode 先发一串空的 `tool_call_update` 再补内容；hermes 的路径是相对路径，审批还会另起一个只有状态的工具调用。所以 `files_changed` 以 git 为主：工作区前后快照（`status --porcelain -uall` 里每个文件的内容哈希，比对前后差异），加上运行前后 HEAD 之间提交涉及的文件（`diff --name-only -z`，不加 `-z` 时中文文件名会被转义成 `"\346..."`）；再并上 `kind` 为 edit / delete / move 且已完成的工具调用里的 `locations`、v1 diff 的 `path`、v2 diff 的 `changes`。不是 git 仓库时只有后者。开始时 HEAD 读不出来的，只有确认是还没有提交的空分支才按全历史统计，其余情况这一轮不追踪提交，免得把旧历史当成新增。
 - `commands` 取 `kind: execute` 的工具调用，命令优先用 `rawInput.command`（codex、claude 都有），没有就用标题。
-- 空闲超时只在没有工具处于 pending / in_progress 时计时，避免把跑长测试误判成卡住；代价是某家把工具调用一直挂在 pending 时，只能等总超时。
+- 空闲超时和空转超时都只在没有工具处于 pending / in_progress 时计时，避免把跑长测试误判成卡住；代价是某家把工具调用一直挂在 pending 时，只能等总超时。
+- 空转只认工具调用、权限请求和 HEAD 变化为进展，思考和文字不算；而且要求期间确实有思考或文字输出，完全静默的留给空闲超时，两者的处理不同（空转续接时要求先动手，卡住通常重跑）。HEAD 每 15 秒最多查一次，单次最多 5 秒，git 卡住不会拖住超时判定。
+- `timing` 的工具 / 模型耗时由主线程每秒按「当时有没有工具在跑」记账，粒度 1 秒，几秒内跑完的工具可能记成 0。
+
+## 派长任务
+
+实测一次：mcode 跑满 90 分钟没有提交，77.7 分钟在思考、工具只占 4.3 分钟，第 18 分钟才第一次改代码；当时的空闲超时把思考输出也算活动，没能提前发现。之后的做法：
+
+- 任务说明里要求「每完成一块就提交」，超时也能留下可用成果；结果里的 `commits` 就是按这个设计的。
+- 总超时设 45–60 分钟，大任务拆小。超时后先看 `commits` 和 worktree 的 `git log`，再决定续接（`--resume`）还是换一家。
+- 语义判断在任务说明里写死（某状态用哪个现有字段判断、边界怎么算），不留给对方权衡；要求先提交能跑的最小版本、边写边跑测试，用测试反馈打断空想。
+- `timing` 里 `model_s` 远大于 `tool_s`、`first_tool_s` 很晚，就是在空转；`--work-timeout`（默认 900 秒）会按这个提前取消。只要意见的任务传 0。
+- 各家倾向：mcode（MiniMax-M3.1-Flash thinking）在要读大量上下文的 UI 重构上会在思考里起草整段代码再反复推翻（一次 240 万字符思考，同一行重写 13 次），适合范围窄、目标明确的任务。
+- `error_kind` 为 `quota` 时这家短时间内不会恢复，把任务在原 worktree 交给别家接手，接手方先审视半成品；`rate_limit` 通常重跑即可。
+- 新建 git worktree 只带受版本控制的文件：被 exclude 的 `.node-version`、`node_modules` 都要自己补，否则对方可能起不来，或第一次提交就卡在钩子上。
 
 ## 实测过的坑
 
