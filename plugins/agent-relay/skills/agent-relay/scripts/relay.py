@@ -17,7 +17,8 @@ agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则�
 run 只往 stdout 打印一个 JSON 对象（多家时是数组，每项多一个 cli）：
     {ok, text, session_id, cost_usd, error, log, protocol_version, stop_reason,
      files_changed, commands[, permissions][, questions][, steps]}
-完整的 JSON-RPC 往来写到 log 目录的 acp.jsonl。只依赖 Python 3 标准库。
+完整的 JSON-RPC 往来写到 log 目录的 acp.jsonl；status.json 是给界面看的进度快照（见 Session.write_status）。
+只依赖 Python 3 标准库。
 """
 
 import argparse
@@ -48,6 +49,9 @@ CLIENT_INFO = {"name": "agent-relay", "title": "agent-relay", "version": "0.2.0"
 LATEST_PROTOCOL = 2
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 EMBED_LIMIT = 1 << 20  # 超过 1 MB 的文本文件只发链接，让 agent 自己读
+STATUS_EVERY = 1.0  # status.json 最多每秒重写一次
+STATUS_STEPS = 40  # status.json 只带最近这么多步，每步文本截到 STATUS_CHARS
+STATUS_CHARS = 600
 
 # 没有 messageId 的消息块遇到这些更新就另起一段（pi-acp 会先发一段启动横幅，再发思考和回答）
 SEGMENT_BREAKS = {"tool_call", "tool_call_update", "tool_call_content_chunk", "agent_thought", "agent_thought_chunk",
@@ -242,11 +246,15 @@ class Session:
         self.steps = []  # --full：按顺序的消息、思考、工具调用
         self.last_activity = time.time()
         self.conn = None
+        self.status_path, self.status_at, self.started, self.prompt_head = None, float("-inf"), time.time(), None
+        self.status_lock = threading.Lock()  # 读线程和主线程都会写
+        self.status_final = False
 
     # ---- 对端请求
 
     def on_request(self, method, params):
         self.last_activity = time.time()
+        self.write_status()
         if method == "session/request_permission":
             return {"outcome": self._decide(params)}
         if method == "elicitation/create":
@@ -297,6 +305,7 @@ class Session:
         if not self.prompting:
             return  # session/load 回放的历史、新会话的初始快照都不算本轮输出
         self.last_activity = time.time()
+        self.write_status()
         if kind == "agent_message_chunk":
             self._append(u.get("messageId"), _text(u.get("content")))
             self._step("message", _text(u.get("content")))
@@ -412,6 +421,47 @@ class Session:
             if t.strip():
                 return t.strip()
         return None
+
+    # ---- 进度快照
+
+    def write_status(self, state="running", force=False, **extra):
+        """给界面（如 hoobnn-agent-mods 的 relay-bar）读的 status.json：谁在跑、在干什么、最近几步。
+        节流到每秒一次，先写临时文件再改名，读的一方不会读到半截。"""
+        if not self.status_path:
+            return
+        with self.status_lock:  # 判断和写盘都在锁内：晚到的 running 快照不会盖掉结束时写的终态
+            tick = time.monotonic()
+            if self.status_final or (not force and tick - self.status_at < STATUS_EVERY):
+                return
+            self.status_at = tick
+            self.status_final = state not in ("starting", "running")
+            self._dump_status(state, time.time(), extra)
+
+    def _dump_status(self, state, now, extra):
+        def clip(t):
+            return t if len(t) <= STATUS_CHARS else "…" + t[-STATUS_CHARS:]
+        steps = []
+        for st in self.steps[-STATUS_STEPS:]:
+            if st["type"] == "tool":
+                t = self.tools.get(st["id"], {})
+                steps.append({"type": "tool", "title": t.get("title"), "kind": t.get("kind"), "status": t.get("status")})
+            else:
+                steps.append({"type": st["type"], "text": clip(st["text"])})
+        named = [t for t in list(self.tools.values()) if t.get("title") or t.get("kind")]
+        status = {
+            "v": 1, "cli": self.a.cli, "model": self.a.model, "effort": self.a.effort,
+            "pid": os.getpid(), "cwd": str(self.cwd), "prompt": self.prompt_head,
+            "started": round(self.started, 3), "updated": round(now, 3), "state": state,
+            "session_id": self.sid,
+            "tools": {"done": sum(t.get("status") in ("completed", "failed") for t in named), "total": len(named)},
+            "steps": steps, **extra,
+        }
+        tmp = self.status_path.with_suffix(".tmp")
+        try:
+            tmp.write_text(json.dumps(status, ensure_ascii=False))
+            os.replace(tmp, self.status_path)
+        except OSError:
+            pass
 
     # ---- 生命周期
 
@@ -558,6 +608,7 @@ class Session:
                     self.done.set()
                     break
                 self.saw_active = True
+            self.write_status()  # 节流时丢下的最后一次变化，在这里补上
             now = time.time()
             if now >= deadline:
                 raise TimeoutError("session/prompt")
@@ -769,6 +820,8 @@ def execute(a, prompt, git_diff=True):
     before = _git_snapshot(cwd) if git_diff else None
     deadline = time.time() + a.timeout
     s = Session(a, cwd)
+    s.status_path, s.prompt_head = run_dir / "status.json", " ".join(prompt.split())[:200]
+    s.write_status("starting", force=True)
     error = None
     try:
         s.start(run_dir)
@@ -823,6 +876,9 @@ def execute(a, prompt, git_diff=True):
     if a.full:
         result["steps"] = s.full_steps()
     (run_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    s.write_status("asked" if s.questions else "done" if result["ok"] else "failed", force=True,
+                   ok=result["ok"], error=result["error"], files_changed=len(result["files_changed"]),
+                   cost_usd=s.cost, ended=round(time.time(), 3))
     return result
 
 
