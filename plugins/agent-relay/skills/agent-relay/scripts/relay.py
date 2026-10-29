@@ -510,6 +510,7 @@ class Session:
             "pid": os.getpid(), "cwd": str(self.cwd), "prompt": self.prompt_head,
             "started": round(self.started, 3), "updated": round(now, 3), "state": state,
             "session_id": self.sid,
+            "caller_session": os.environ.get("CLAUDE_CODE_SESSION_ID") or None,  # 界面据此只显示本会话派的活
             "tools": {"done": sum(t.get("status") in ("completed", "failed") for t in named), "total": len(named)},
             "timing": self.timing(), "steps": steps, **extra,
         }

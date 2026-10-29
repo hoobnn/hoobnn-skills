@@ -27,7 +27,7 @@ python3 "<SKILL_ROOT>/scripts/relay.py" outdated       # 对照 ACP 注册表看
 - 单家且在 git 仓库里运行时，`commits` 按新到旧列出运行期间新增的提交。`timing` 给出总耗时、工具/模型耗时及首次工具、编辑、提交的时间，运行中也实时写入 `status.json`。
 - `error_kind` 把失败分为 `timeout`、`idle`、`stalled`、`asked`、`quota`、`rate_limit`、`auth` 或 `error`，没有错误时为 `null`；原始 `error` 文本保持不变。
 - 对方反问（ACP elicitation，比如 claude 的 AskUserQuestion）时，relay 结束本轮，`ok` 为 false，问题放在 `questions` 里（字段名、说明、可选值）。回答方式有两种：一是带 `--resume` 和 `--answer 字段=取值`（多选用逗号分隔）重跑，并在 prompt 里让它接着问，它再问时 relay 自动代答；二是直接在 prompt 里写答案。能自己判断的就自己答，拿不准的再问用户。
-- 每次运行的目录（输出里的 `log`）下，`status.json` 是给界面看的进度快照：agent 工作期间约每秒重写一次（当前状态、工具完成数、最近 40 步），结束时写最终状态。hoobnn-agent-mods 的 `relay-bar` mod 读它，在 Claude Code 的输入框上方显示派出去的活进行到哪了。
+- 每次运行的目录（输出里的 `log`）下，`status.json` 是给界面看的进度快照：agent 工作期间约每秒重写一次（当前状态、工具完成数、最近 40 步，以及发起方 Claude Code 会话的 `caller_session`），结束时写最终状态。hoobnn-agent-mods 的 `relay-bar` mod 读它，在 Claude Code 的输入框上方显示派出去的活进行到哪了。
 - 调用是阻塞的，默认总超时 1200 秒；连续 300 秒（`--idle-timeout`，0 关闭）没有任何输出、也没有工具在跑，就判定卡住；连续 900 秒（`--work-timeout`，0 关闭）只有思考或文字、没有工具进展，就判定空转。三者都会先 `session/cancel` 再关进程，会话还在，可以重跑或续接。只要意见、不动手的任务（`--asks deny`）要传 `--work-timeout 0`，否则长思考会被误判空转。长任务放到宿主的后台机制里跑。
 
 对方看不到当前对话，prompt 要自带背景，相关文件用 `--file` 附上；只想要意见时，在 prompt 里写明，再加 `--asks deny`。
