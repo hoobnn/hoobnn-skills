@@ -769,6 +769,15 @@ def _litter_guard(cli, cwd):
     return clean
 
 
+def _git_output(cwd, *args):
+    """取 git 输出；失败或超时都当作没有。"""
+    try:
+        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout.decode(errors="replace") if r.returncode == 0 else None
+
+
 def _git_snapshot(cwd):
     """工作区里未提交文件的内容指纹；不是 git 仓库时返回 None。"""
     def git(*args):
@@ -798,6 +807,29 @@ def _git_snapshot(cwd):
     return snap
 
 
+def _git_commits(cwd, head_before, head_after):
+    """运行期间新增的提交及其文件；非 git 仓库时返回 None。"""
+    top = _git_output(cwd, "rev-parse", "--show-toplevel")
+    if top is None:
+        return None
+    commits, paths = [], set()
+    if head_after and head_before != head_after:
+        rev = f"{head_before}..{head_after}" if head_before else head_after
+        log = _git_output(cwd, "log", "--format=%H%x00%s", rev)
+        if log:
+            for line in log.splitlines():
+                sha, _, subject = line.partition("\0")
+                if sha:
+                    commits.append({"sha": sha[:12], "subject": subject})
+        if head_before:
+            changed = _git_output(cwd, "diff", "--name-only", head_before, head_after)
+        else:
+            changed = _git_output(cwd, "log", "--name-only", "--format=", head_after)
+        root = Path(top.strip())
+        paths = {str(root / line) for line in (changed or "").splitlines() if line}
+    return commits, paths
+
+
 def _files_changed(before, after, reported, cwd):
     """git 前后快照的差异（能抓到 shell 写的文件）加上工具调用上报的路径（能抓到仓库外的文件）。"""
     paths = set(reported)
@@ -818,6 +850,7 @@ def execute(a, prompt, git_diff=True):
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
+    head_before = (_git_output(cwd, "rev-parse", "HEAD") or "").strip() or None if git_diff else None
     deadline = time.time() + a.timeout
     s = Session(a, cwd)
     s.status_path, s.prompt_head = run_dir / "status.json", " ".join(prompt.split())[:200]
@@ -845,6 +878,8 @@ def execute(a, prompt, git_diff=True):
             s.close()
         clean_litter()
     after = _git_snapshot(cwd) if before is not None else None
+    head_after = (_git_output(cwd, "rev-parse", "HEAD") or "").strip() or None if git_diff else None
+    git_info = _git_commits(cwd, head_before, head_after) if git_diff else None
 
     if s.questions:
         error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
@@ -857,6 +892,7 @@ def execute(a, prompt, git_diff=True):
         error = f"{error}；stderr：{tail}" if tail else error
 
     text = s.text()
+    commits, committed_paths = git_info or (None, set())
     result = {
         "ok": not error and bool(text),
         "text": text,
@@ -866,9 +902,11 @@ def execute(a, prompt, git_diff=True):
         "log": str(run_dir),
         "protocol_version": s.version,
         "stop_reason": s.stop_reason,
-        "files_changed": _files_changed(before, after, s.changed_paths(), cwd),
+        "files_changed": _files_changed(before, after, s.changed_paths() | committed_paths, cwd),
         "commands": s.commands(),
     }
+    if commits is not None:
+        result["commits"] = commits
     if s.permissions:
         result["permissions"] = s.permissions
     if s.questions:
@@ -878,7 +916,7 @@ def execute(a, prompt, git_diff=True):
     (run_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     s.write_status("asked" if s.questions else "done" if result["ok"] else "failed", force=True,
                    ok=result["ok"], error=result["error"], files_changed=len(result["files_changed"]),
-                   cost_usd=s.cost, ended=round(time.time(), 3))
+                   commits=len(result.get("commits", [])), cost_usd=s.cost, ended=round(time.time(), 3))
     return result
 
 
