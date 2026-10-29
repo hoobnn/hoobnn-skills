@@ -8,7 +8,7 @@ agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则�
 
     relay.py run <cli[,cli...]> [--model [CLI=]M] [--effort [CLI=]E] [--resume ID] [--file F ...]
                        [--answer KEY=VALUE ...] [--asks allow|deny] [--full] [--cwd DIR]
-                       [--timeout SEC] [--idle-timeout SEC] [--protocol 1|2] (PROMPT | - | --prompt-file F)
+                       [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] [--protocol 1|2] (PROMPT | - | --prompt-file F)
     relay.py options <cli>          # 列出该 agent 的模型、推理强度、模式等 config option
     relay.py check [cli ...]        # 冒烟测试：回复、续会话、写文件、附件
     relay.py install agy            # 下载 ACP 注册表里的 agy ACP server
@@ -123,6 +123,10 @@ class RpcError(Exception):
 
 
 class IdleError(Exception):
+    pass
+
+
+class StallError(Exception):
     pass
 
 
@@ -245,6 +249,11 @@ class Session:
         self.tools = {}  # toolCallId -> 合并后的工具调用
         self.steps = []  # --full：按顺序的消息、思考、工具调用
         self.last_activity = time.time()
+        self.last_progress = self.last_activity
+        self.prompt_started = self.prompt_ended = self.timing_at = None
+        self.tool_s = self.model_s = 0.0
+        self.first_tool_s = self.first_edit_s = self.first_commit_s = None
+        self.git_diff, self.head, self.head_checked = False, None, float("-inf")
         self.conn = None
         self.status_path, self.status_at, self.started, self.prompt_head = None, float("-inf"), time.time(), None
         self.status_lock = threading.Lock()  # 读线程和主线程都会写
@@ -256,6 +265,7 @@ class Session:
         self.last_activity = time.time()
         self.write_status()
         if method == "session/request_permission":
+            self.last_progress = time.time()
             return {"outcome": self._decide(params)}
         if method == "elicitation/create":
             return self._elicit(params)
@@ -342,12 +352,20 @@ class Session:
         if not tid:
             return
         t = self.tools.get(tid)
-        if t is None:
+        new = t is None
+        old_status = t.get("status") if t else None
+        if new:
             t = self.tools[tid] = {"paths": set()}
             self.steps.append({"type": "tool", "id": tid})
+            if self.first_tool_s is None and self.prompt_started is not None:
+                self.first_tool_s = time.monotonic() - self.prompt_started
         for k in ("title", "kind", "status", "rawInput"):
             if u.get(k):
                 t[k] = u[k]
+        if new or t.get("status") != old_status:
+            self.last_progress = time.time()
+        if t.get("kind") in ("edit", "delete", "move") and self.first_edit_s is None and self.prompt_started is not None:
+            self.first_edit_s = time.monotonic() - self.prompt_started
         for loc in u.get("locations") or []:
             t["paths"].add(loc.get("path"))
         for c in u.get("content") or []:
@@ -361,6 +379,38 @@ class Session:
         """有工具还在跑（长命令、测试）时不算卡住。"""
         return any(t.get("status") in (None, "pending", "in_progress")
                    for t in self.tools.values() if t.get("title") or t.get("kind"))
+
+    def _account_time(self):
+        """只在主线程轮询时累计工具和模型耗时。"""
+        if self.prompt_started is None:
+            return None
+        now = time.monotonic()
+        elapsed = max(0.0, now - self.timing_at)
+        if self.busy():
+            self.tool_s += elapsed
+        else:
+            self.model_s += elapsed
+        self.timing_at = now
+        return now
+
+    def _check_head(self):
+        now = time.monotonic()
+        if not self.git_diff or now - self.head_checked < 15:
+            return
+        self.head_checked = now
+        head = _git_head(self.cwd)
+        if head and head != self.head:
+            self.head = head
+            self.last_progress = time.time()
+            if self.first_commit_s is None and self.prompt_started is not None:
+                self.first_commit_s = now - self.prompt_started
+
+    def timing(self):
+        total = ((self.prompt_ended or time.monotonic()) - self.prompt_started) if self.prompt_started is not None else 0.0
+        return {"total_s": round(total, 1), "tool_s": round(self.tool_s, 1), "model_s": round(self.model_s, 1),
+                "first_tool_s": round(self.first_tool_s, 1) if self.first_tool_s is not None else None,
+                "first_edit_s": round(self.first_edit_s, 1) if self.first_edit_s is not None else None,
+                "first_commit_s": round(self.first_commit_s, 1) if self.first_commit_s is not None else None}
 
     def changed_paths(self):
         out = set()
@@ -454,7 +504,7 @@ class Session:
             "started": round(self.started, 3), "updated": round(now, 3), "state": state,
             "session_id": self.sid,
             "tools": {"done": sum(t.get("status") in ("completed", "failed") for t in named), "total": len(named)},
-            "steps": steps, **extra,
+            "timing": self.timing(), "steps": steps, **extra,
         }
         tmp = self.status_path.with_suffix(".tmp")
         try:
@@ -589,31 +639,40 @@ class Session:
 
     def prompt(self, text, deadline):
         """v1 以 prompt 响应为本轮结束；v2 的响应只确认插入，结束看 idle 的 state_update。
-        两种都按秒轮询，顺带检查总超时和空闲超时（没有工具在跑、又长时间没有任何更新）。"""
+        按秒轮询，检查总超时、空闲超时和只思考不动手的空转，并累计耗时。"""
         self.prompting = True
-        self.last_activity = time.time()
-        q = self.conn.send("session/prompt", {"sessionId": self.sid, "prompt": self._blocks(text)})
-        while not self.done.is_set():
-            try:
-                r = q.get(timeout=1)
-            except queue.Empty:
-                r = None
-            if r is not None:
-                q = queue.Queue()  # 响应只处理一次
-                if "error" in r:
-                    raise RpcError(r["error"])
-                r = r.get("result") or {}
-                if self.version == 1 or "stopReason" in r:
-                    self.stop_reason = r.get("stopReason")
-                    self.done.set()
-                    break
-                self.saw_active = True
-            self.write_status()  # 节流时丢下的最后一次变化，在这里补上
-            now = time.time()
-            if now >= deadline:
-                raise TimeoutError("session/prompt")
-            if self.a.idle_timeout and now - self.last_activity > self.a.idle_timeout and not self.busy():
-                raise IdleError(self.a.idle_timeout)
+        blocks = self._blocks(text)
+        self.last_activity = self.last_progress = time.time()
+        self.prompt_started = self.timing_at = time.monotonic()
+        try:
+            q = self.conn.send("session/prompt", {"sessionId": self.sid, "prompt": blocks})
+            while not self.done.is_set():
+                try:
+                    r = q.get(timeout=1)
+                except queue.Empty:
+                    r = None
+                self._account_time()
+                self._check_head()
+                if r is not None:
+                    q = queue.Queue()  # 响应只处理一次
+                    if "error" in r:
+                        raise RpcError(r["error"])
+                    r = r.get("result") or {}
+                    if self.version == 1 or "stopReason" in r:
+                        self.stop_reason = r.get("stopReason")
+                        self.done.set()
+                        break
+                    self.saw_active = True
+                self.write_status()  # 节流时丢下的最后一次变化，在这里补上
+                now = time.time()
+                if now >= deadline:
+                    raise TimeoutError("session/prompt")
+                if self.a.idle_timeout and now - self.last_activity > self.a.idle_timeout and not self.busy():
+                    raise IdleError(self.a.idle_timeout)
+                if self.a.work_timeout and now - self.last_progress > self.a.work_timeout and not self.busy():
+                    raise StallError(self.a.work_timeout)
+        finally:
+            self.prompt_ended = self._account_time()
 
     def cancel(self):
         if self.sid and not self.done.is_set():
@@ -778,6 +837,10 @@ def _git_output(cwd, *args):
     return r.stdout.decode(errors="replace") if r.returncode == 0 else None
 
 
+def _git_head(cwd):
+    return (_git_output(cwd, "rev-parse", "HEAD") or "").strip() or None
+
+
 def _git_snapshot(cwd):
     """工作区里未提交文件的内容指纹；不是 git 仓库时返回 None。"""
     def git(*args):
@@ -850,9 +913,10 @@ def execute(a, prompt, git_diff=True):
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
-    head_before = (_git_output(cwd, "rev-parse", "HEAD") or "").strip() or None if git_diff else None
+    head_before = _git_head(cwd) if git_diff else None
     deadline = time.time() + a.timeout
     s = Session(a, cwd)
+    s.git_diff, s.head = git_diff, head_before
     s.status_path, s.prompt_head = run_dir / "status.json", " ".join(prompt.split())[:200]
     s.write_status("starting", force=True)
     error = None
@@ -869,6 +933,10 @@ def execute(a, prompt, git_diff=True):
         error = f"连续 {a.idle_timeout}s 没有任何输出、也没有工具在跑，判定卡住，已取消；会话还在，可以重跑或续接"
         if s.conn:
             s.cancel()
+    except StallError:
+        error = f"连续 {a.work_timeout}s 只有思考或文字、没有调用工具，判定空转，已取消；会话还在，可以续接并要求先动手"
+        if s.conn:
+            s.cancel()
     except (RpcError, RuntimeError) as e:
         error = str(e)
     except Exception as e:  # 协议对不上也要把日志位置交回去
@@ -878,7 +946,9 @@ def execute(a, prompt, git_diff=True):
             s.close()
         clean_litter()
     after = _git_snapshot(cwd) if before is not None else None
-    head_after = (_git_output(cwd, "rev-parse", "HEAD") or "").strip() or None if git_diff else None
+    head_after = _git_head(cwd) if git_diff else None
+    if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
+        s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if git_diff else None
 
     if s.questions:
@@ -902,6 +972,7 @@ def execute(a, prompt, git_diff=True):
         "log": str(run_dir),
         "protocol_version": s.version,
         "stop_reason": s.stop_reason,
+        "timing": s.timing(),
         "files_changed": _files_changed(before, after, s.changed_paths() | committed_paths, cwd),
         "commands": s.commands(),
     }
@@ -925,7 +996,7 @@ def execute(a, prompt, git_diff=True):
 
 def _ns(**kw):
     base = dict(cli=None, model=None, effort=None, resume=None, cwd=None, timeout=300,
-                protocol=LATEST_PROTOCOL, files=[], answers={}, asks="allow", full=False, idle_timeout=300)
+                protocol=LATEST_PROTOCOL, files=[], answers={}, asks="allow", full=False, idle_timeout=300, work_timeout=0)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -1133,6 +1204,8 @@ def main():
     r.add_argument("--timeout", type=int, default=1200, help="秒，默认 1200")
     r.add_argument("--idle-timeout", type=int, default=300,
                    help="连续多少秒没有任何输出、也没有工具在跑就判定卡住，默认 300，0 关闭")
+    r.add_argument("--work-timeout", type=int, default=900,
+                   help="连续多少秒只有思考或文字、没有工具进展就判定空转，默认 900，0 关闭")
     r.add_argument("--asks", choices=("allow", "deny"), default="allow",
                    help="agent 按本机配置来问权限时：allow 代为放行（默认），deny 当成拒绝")
     r.add_argument("--full", action="store_true", help="输出里附上完整过程 steps：消息、思考、工具调用")
