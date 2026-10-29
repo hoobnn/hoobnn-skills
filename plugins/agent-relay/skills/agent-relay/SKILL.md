@@ -22,7 +22,7 @@ python3 "<SKILL_ROOT>/scripts/relay.py" outdated       # 对照 ACP 注册表看
 - 权限沿用各家本机自己的配置（如 opencode.json、`~/.claude/settings.json`），relay 不改模式。配置里写成「要问」的操作，默认 `--asks allow` 代为放行（relay 是非交互的）；`--asks deny` 把它们当成拒绝，适合只想要意见的场景。配置里本来就拒绝的，两种都不会放行。
 - `--model` / `--effort` 匹配会话的 config option（取值或名称，大小写不敏感，可只写模型名的末段）；匹配不到或有歧义时报错并列出候选，先用 `options` 查。
 - `--file` 可重复，用来把文件随 prompt 送过去：图片直接内联（九家都收），文本文件在对端支持时嵌入内容，否则发文件链接让它自己读。
-- 输出一个 JSON：`ok`、`text`（最后一段回答）、`session_id`、`cost_usd`、`error`、`error_kind`、`log`、`protocol_version`、`stop_reason`、`commits`、`timing`、`files_changed`、`commands`，有权限请求时多一个 `permissions`（标题和处理结果），加 `--full` 时多一个 `steps`（按顺序的消息、思考、工具调用）。拿 `session_id` 传给 `--resume` 就能接着聊。
+- 输出一个 JSON：`ok`、`text`（最后一段回答）、`session_id`、`cost_usd`、`error`、`error_kind`、`log`、`protocol_version`、`stop_reason`、`timing`、`files_changed`、`commands`，单家运行且 cwd 在 git 仓库里时多一个 `commits`，有权限请求时多一个 `permissions`（标题和处理结果），加 `--full` 时多一个 `steps`（按顺序的消息、思考、工具调用）。拿 `session_id` 传给 `--resume` 就能接着聊。
 - `files_changed` 合并 git 工作区前后的差异、运行期间提交涉及的文件和工具调用上报的路径（能抓到仓库外的文件）。多家并行时只用工具上报，因为同一目录里分不清是谁改的。
 - 单家且在 git 仓库里运行时，`commits` 按新到旧列出运行期间新增的提交。`timing` 给出总耗时、工具/模型耗时及首次工具、编辑、提交的时间，运行中也实时写入 `status.json`。
 - `error_kind` 把失败分为 `timeout`、`idle`、`stalled`、`asked`、`quota`、`rate_limit`、`auth` 或 `error`，没有错误时为 `null`；原始 `error` 文本保持不变。

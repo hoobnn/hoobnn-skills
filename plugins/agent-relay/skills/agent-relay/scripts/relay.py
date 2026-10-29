@@ -251,6 +251,7 @@ class Session:
         self.steps = []  # --full：按顺序的消息、思考、工具调用
         self.last_activity = time.time()
         self.last_progress = self.last_activity
+        self.output_since_progress = False
         self.prompt_started = self.prompt_ended = self.timing_at = None
         self.tool_s = self.model_s = 0.0
         self.first_tool_s = self.first_edit_s = self.first_commit_s = None
@@ -267,6 +268,7 @@ class Session:
         self.write_status()
         if method == "session/request_permission":
             self.last_progress = time.time()
+            self.output_since_progress = False
             return {"outcome": self._decide(params)}
         if method == "elicitation/create":
             return self._elicit(params)
@@ -316,6 +318,8 @@ class Session:
         if not self.prompting:
             return  # session/load 回放的历史、新会话的初始快照都不算本轮输出
         self.last_activity = time.time()
+        if kind in ("agent_thought_chunk", "agent_thought", "agent_message_chunk", "agent_message"):
+            self.output_since_progress = True
         self.write_status()
         if kind == "agent_message_chunk":
             self._append(u.get("messageId"), _text(u.get("content")))
@@ -365,6 +369,7 @@ class Session:
                 t[k] = u[k]
         if new or t.get("status") != old_status:
             self.last_progress = time.time()
+            self.output_since_progress = False
         if t.get("kind") in ("edit", "delete", "move") and self.first_edit_s is None and self.prompt_started is not None:
             self.first_edit_s = time.monotonic() - self.prompt_started
         for loc in u.get("locations") or []:
@@ -379,7 +384,7 @@ class Session:
     def busy(self):
         """有工具还在跑（长命令、测试）时不算卡住。"""
         return any(t.get("status") in (None, "pending", "in_progress")
-                   for t in self.tools.values() if t.get("title") or t.get("kind"))
+                   for t in list(self.tools.values()) if t.get("title") or t.get("kind"))
 
     def _account_time(self):
         """只在主线程轮询时累计工具和模型耗时。"""
@@ -403,6 +408,7 @@ class Session:
         if head and head != self.head:
             self.head = head
             self.last_progress = time.time()
+            self.output_since_progress = False
             if self.first_commit_s is None and self.prompt_started is not None:
                 self.first_commit_s = now - self.prompt_started
 
@@ -644,6 +650,7 @@ class Session:
         self.prompting = True
         blocks = self._blocks(text)
         self.last_activity = self.last_progress = time.time()
+        self.output_since_progress = False
         self.prompt_started = self.timing_at = time.monotonic()
         try:
             q = self.conn.send("session/prompt", {"sessionId": self.sid, "prompt": blocks})
@@ -670,10 +677,15 @@ class Session:
                     raise TimeoutError("session/prompt")
                 if self.a.idle_timeout and now - self.last_activity > self.a.idle_timeout and not self.busy():
                     raise IdleError(self.a.idle_timeout)
-                if self.a.work_timeout and now - self.last_progress > self.a.work_timeout and not self.busy():
+                if (self.a.work_timeout and self.output_since_progress
+                        and now - self.last_progress > self.a.work_timeout and not self.busy()):
                     raise StallError(self.a.work_timeout)
         finally:
-            self.prompt_ended = self._account_time()
+            self.prompting = False
+            try:
+                self.prompt_ended = self._account_time()
+            except Exception:
+                self.prompt_ended = time.monotonic()
 
     def cancel(self):
         if self.sid and not self.done.is_set():
@@ -838,8 +850,23 @@ def _git_output(cwd, *args):
     return r.stdout.decode(errors="replace") if r.returncode == 0 else None
 
 
+def _git_head_start(cwd):
+    """返回（是否追踪提交，HEAD）；空仓库是（True, None）。"""
+    cmd = ["git", "-C", str(cwd), "rev-parse"]
+    try:
+        repo = subprocess.run([*cmd, "--git-dir"], capture_output=True, timeout=60)
+        if repo.returncode:
+            return False, None
+        head = subprocess.run([*cmd, "--verify", "-q", "HEAD"], capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return False, None
+    if head.returncode:
+        return True, None
+    return True, head.stdout.decode(errors="replace").strip() or None
+
+
 def _git_head(cwd):
-    return (_git_output(cwd, "rev-parse", "HEAD") or "").strip() or None
+    return (_git_output(cwd, "rev-parse", "--verify", "-q", "HEAD") or "").strip() or None
 
 
 def _git_snapshot(cwd):
@@ -886,11 +913,11 @@ def _git_commits(cwd, head_before, head_after):
                 if sha:
                     commits.append({"sha": sha[:12], "subject": subject})
         if head_before:
-            changed = _git_output(cwd, "diff", "--name-only", head_before, head_after)
+            changed = _git_output(cwd, "diff", "--name-only", "-z", head_before, head_after)
         else:
-            changed = _git_output(cwd, "log", "--name-only", "--format=", head_after)
+            changed = _git_output(cwd, "log", "--name-only", "-z", "--format=", head_after)
         root = Path(top.strip())
-        paths = {str(root / line) for line in (changed or "").splitlines() if line}
+        paths = {str(root / path) for path in (changed or "").split("\0") if path}
     return commits, paths
 
 
@@ -926,10 +953,10 @@ def execute(a, prompt, git_diff=True):
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
-    head_before = _git_head(cwd) if git_diff else None
+    track_commits, head_before = _git_head_start(cwd) if git_diff else (False, None)
     deadline = time.time() + a.timeout
     s = Session(a, cwd)
-    s.git_diff, s.head = git_diff, head_before
+    s.git_diff, s.head = track_commits, head_before
     s.status_path, s.prompt_head = run_dir / "status.json", " ".join(prompt.split())[:200]
     s.write_status("starting", force=True)
     error = error_kind = None
@@ -961,12 +988,12 @@ def execute(a, prompt, git_diff=True):
             s.close()
         clean_litter()
     after = _git_snapshot(cwd) if before is not None else None
-    head_after = _git_head(cwd) if git_diff else None
+    head_after = _git_head(cwd) if track_commits else None
     if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
-    git_info = _git_commits(cwd, head_before, head_after) if git_diff else None
+    git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
 
-    if s.questions:
+    if s.questions and not error:
         error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
         error_kind = "asked"
     if not error and s.turn_error:
