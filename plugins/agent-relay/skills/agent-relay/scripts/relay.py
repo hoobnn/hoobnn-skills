@@ -399,12 +399,12 @@ class Session:
         self.timing_at = now
         return now
 
-    def _check_head(self):
+    def _check_head(self, timeout):
         now = time.monotonic()
         if not self.git_diff or now - self.head_checked < 15:
             return
         self.head_checked = now
-        head = _git_head(self.cwd)
+        head = _git_head(self.cwd, timeout=timeout)
         if head and head != self.head:
             self.head = head
             self.last_progress = time.time()
@@ -660,7 +660,7 @@ class Session:
                 except queue.Empty:
                     r = None
                 self._account_time()
-                self._check_head()
+                self._check_head(max(1, min(5, deadline - time.time())))
                 if r is not None:
                     q = queue.Queue()  # 响应只处理一次
                     if "error" in r:
@@ -841,10 +841,10 @@ def _litter_guard(cli, cwd):
     return clean
 
 
-def _git_output(cwd, *args):
+def _git_output(cwd, *args, timeout=60):
     """取 git 输出；失败或超时都当作没有。"""
     try:
-        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=60)
+        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout.decode(errors="replace") if r.returncode == 0 else None
@@ -852,21 +852,26 @@ def _git_output(cwd, *args):
 
 def _git_head_start(cwd):
     """返回（是否追踪提交，HEAD）；空仓库是（True, None）。"""
-    cmd = ["git", "-C", str(cwd), "rev-parse"]
+    cmd = ["git", "-C", str(cwd)]
     try:
-        repo = subprocess.run([*cmd, "--git-dir"], capture_output=True, timeout=60)
+        repo = subprocess.run([*cmd, "rev-parse", "--git-dir"], capture_output=True, timeout=60)
         if repo.returncode:
             return False, None
-        head = subprocess.run([*cmd, "--verify", "-q", "HEAD"], capture_output=True, timeout=60)
+        head = subprocess.run([*cmd, "rev-parse", "--verify", "-q", "HEAD"], capture_output=True, timeout=60)
+        if head.returncode:
+            ref = subprocess.run([*cmd, "symbolic-ref", "-q", "HEAD"], capture_output=True, timeout=60)
+            if ref.returncode:
+                return False, None
+            name = ref.stdout.decode(errors="replace").strip()
+            present = subprocess.run([*cmd, "show-ref", "--verify", "--quiet", name], capture_output=True, timeout=60)
+            return present.returncode == 1, None
     except (OSError, subprocess.TimeoutExpired):
         return False, None
-    if head.returncode:
-        return True, None
     return True, head.stdout.decode(errors="replace").strip() or None
 
 
-def _git_head(cwd):
-    return (_git_output(cwd, "rev-parse", "--verify", "-q", "HEAD") or "").strip() or None
+def _git_head(cwd, timeout=60):
+    return (_git_output(cwd, "rev-parse", "--verify", "-q", "HEAD", timeout=timeout) or "").strip() or None
 
 
 def _git_snapshot(cwd):
@@ -993,13 +998,13 @@ def execute(a, prompt, git_diff=True):
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
 
-    if s.questions and not error:
-        error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
-        error_kind = "asked"
     if not error and s.turn_error:
         error = s.turn_error
     if not error and s.stop_reason not in (None, "end_turn", "max_tokens", "max_turn_requests"):
         error = f"stopReason={s.stop_reason}"
+    if s.questions and not error:
+        error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
+        error_kind = "asked"
     if error and s.conn and s.conn.proc.returncode not in (0, None, -15, -9):
         tail = (run_dir / "stderr").read_text(errors="replace").strip()[-600:]
         error = f"{error}；stderr：{tail}" if tail else error
@@ -1031,7 +1036,7 @@ def execute(a, prompt, git_diff=True):
     if a.full:
         result["steps"] = s.full_steps()
     (run_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
-    s.write_status("asked" if s.questions else "done" if result["ok"] else "failed", force=True,
+    s.write_status("asked" if result["error_kind"] == "asked" else "done" if result["ok"] else "failed", force=True,
                    ok=result["ok"], error=result["error"], error_kind=result["error_kind"], files_changed=len(result["files_changed"]),
                    commits=len(result.get("commits", [])), cost_usd=s.cost, ended=round(time.time(), 3))
     return result
