@@ -54,6 +54,8 @@ STATUS_EVERY = 1.0  # status.json 最多每秒重写一次
 STATUS_STEPS = 40  # status.json 只带最近这么多步，每步文本截到 STATUS_CHARS
 STATUS_CHARS = 600
 PROGRESS_KINDS = {"edit", "delete", "move", "execute"}
+KILLED = threading.Event()
+KILL_SIGNAL = None
 
 # 没有 messageId 的消息块遇到这些更新就另起一段（pi-acp 会先发一段启动横幅，再发思考和回答）
 SEGMENT_BREAKS = {"tool_call", "tool_call_update", "tool_call_content_chunk", "agent_thought", "agent_thought_chunk",
@@ -132,6 +134,18 @@ class StallError(Exception):
     pass
 
 
+class KilledError(Exception):
+    pass
+
+
+def _on_signal(signum, frame):
+    global KILL_SIGNAL
+    if KILLED.is_set():
+        os._exit(128 + signum)
+    KILL_SIGNAL = signum
+    KILLED.set()
+
+
 class Connection:
     """一条 stdio JSON-RPC 连接。读线程处理对端发来的请求（权限等），通知交给 on_notify。"""
 
@@ -200,7 +214,19 @@ class Connection:
 
     def request(self, method, params, timeout):
         try:
-            resp = self.send(method, params).get(timeout=max(timeout, 1))
+            q = self.send(method, params)
+            deadline = time.monotonic() + max(timeout, 1)
+            while True:
+                if KILLED.is_set():
+                    raise KilledError()
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise queue.Empty()
+                try:
+                    resp = q.get(timeout=min(remaining, 0.2))
+                    break
+                except queue.Empty:
+                    pass
         except queue.Empty:
             raise TimeoutError(method)
         if "error" in resp:
@@ -668,6 +694,8 @@ class Session:
         try:
             q = self.conn.send("session/prompt", {"sessionId": self.sid, "prompt": blocks})
             while not self.done.is_set():
+                if KILLED.is_set():
+                    raise KilledError()
                 try:
                     r = q.get(timeout=1)
                 except queue.Empty:
@@ -983,6 +1011,10 @@ def execute(a, prompt, git_diff=True):
         s.open()
         s.configure()
         s.prompt(prompt, deadline)
+    except KilledError:
+        error, error_kind = f"收到 {signal.Signals(KILL_SIGNAL).name}，已取消", "killed"
+        if s.conn:
+            s.cancel()
     except TimeoutError:
         error, error_kind = f"超过 {a.timeout}s 被终止", "timeout"
         if s.conn:
@@ -1012,6 +1044,8 @@ def execute(a, prompt, git_diff=True):
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
 
+    if KILLED.is_set():
+        error, error_kind = f"收到 {signal.Signals(KILL_SIGNAL).name}，已取消", "killed"
     if not error and s.turn_error:
         error = s.turn_error
     if not error and s.stop_reason not in (None, "end_turn", "max_tokens", "max_turn_requests"):
@@ -1288,6 +1322,9 @@ def main():
         sp.add_argument("--protocol", type=int, choices=(1, 2), default=LATEST_PROTOCOL,
                         help="请求的 ACP 协议版本，默认 2（v2 草案），对端只支持 v1 时自动回落")
     a = p.parse_args()
+    if a.command in ("run", "check"):
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, _on_signal)
     {"run": cmd_run, "check": cmd_check, "options": cmd_options, "install": cmd_install,
      "outdated": cmd_outdated}[a.command](a)
 
