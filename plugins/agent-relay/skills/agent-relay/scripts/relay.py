@@ -17,7 +17,7 @@ agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则�
 run 只往 stdout 打印一个 JSON 对象（多家时是数组，每项多一个 cli）：
     {ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
      files_changed, timing, commands, warnings[, commits, history_rewritten][, permissions][, questions][, steps]}
-完整的 JSON-RPC 往来写到 log 目录的 acp.jsonl；status.json 是给界面看的进度快照（见 Session.write_status）。
+JSON-RPC 往来写到 log 目录的 acp.jsonl（大块 base64 / data 只记大小和摘要）；status.json 是给界面看的进度快照（见 Session.write_status）。
 只依赖 Python 3 标准库。
 """
 
@@ -53,6 +53,7 @@ EMBED_LIMIT = 1 << 20  # 超过 1 MB 的文本文件只发链接，让 agent 自
 STATUS_EVERY = 1.0  # status.json 最多每秒重写一次
 STATUS_STEPS = 40  # status.json 只带最近这么多步，每步文本截到 STATUS_CHARS
 STATUS_CHARS = 600
+LOG_DATA_LIMIT = 4096
 PROGRESS_KINDS = {"edit", "delete", "move", "execute"}
 KILLED = threading.Event()
 KILL_SIGNAL = None
@@ -146,6 +147,18 @@ def _on_signal(signum, frame):
     KILLED.set()
 
 
+def _log_value(value, key=""):
+    if isinstance(value, dict):
+        return {k: _log_value(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_log_value(v, key) for v in value]
+    if isinstance(value, str) and len(value) > LOG_DATA_LIMIT:
+        if key.lower() in ("data", "base64") or value.startswith("data:") or re.fullmatch(r"[A-Za-z0-9+/\r\n]+={0,2}", value):
+            raw = value.encode()
+            return f"<omitted {len(raw)} bytes sha256:{hashlib.sha256(raw).hexdigest()[:12]}>"
+    return value
+
+
 class Connection:
     """一条 stdio JSON-RPC 连接。读线程处理对端发来的请求（权限等），通知交给 on_notify。"""
 
@@ -160,7 +173,7 @@ class Connection:
         threading.Thread(target=self._read, daemon=True).start()
 
     def _record(self, direction, msg):
-        self.log.write(json.dumps({"t": round(time.time(), 3), "dir": direction, "msg": msg}, ensure_ascii=False) + "\n")
+        self.log.write(json.dumps({"t": round(time.time(), 3), "dir": direction, "msg": _log_value(msg)}, ensure_ascii=False) + "\n")
         self.log.flush()
 
     def _write(self, msg):
