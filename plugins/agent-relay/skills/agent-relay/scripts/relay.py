@@ -53,6 +53,7 @@ EMBED_LIMIT = 1 << 20  # 超过 1 MB 的文本文件只发链接，让 agent 自
 STATUS_EVERY = 1.0  # status.json 最多每秒重写一次
 STATUS_STEPS = 40  # status.json 只带最近这么多步，每步文本截到 STATUS_CHARS
 STATUS_CHARS = 600
+PROGRESS_KINDS = {"edit", "delete", "move", "execute"}
 
 # 没有 messageId 的消息块遇到这些更新就另起一段（pi-acp 会先发一段启动横幅，再发思考和回答）
 SEGMENT_BREAKS = {"tool_call", "tool_call_update", "tool_call_content_chunk", "agent_thought", "agent_thought_chunk",
@@ -251,7 +252,7 @@ class Session:
         self.steps = []  # --full：按顺序的消息、思考、工具调用
         self.last_activity = time.time()
         self.last_progress = self.last_activity
-        self.output_since_progress = False
+        self.output_since_progress = self.read_since_progress = False
         self.prompt_started = self.prompt_ended = self.timing_at = None
         self.tool_s = self.model_s = 0.0
         self.first_tool_s = self.first_edit_s = self.first_commit_s = None
@@ -267,8 +268,7 @@ class Session:
         self.last_activity = time.time()
         self.write_status()
         if method == "session/request_permission":
-            self.last_progress = time.time()
-            self.output_since_progress = False
+            self.output_since_progress = True
             return {"outcome": self._decide(params)}
         if method == "elicitation/create":
             return self._elicit(params)
@@ -359,6 +359,7 @@ class Session:
         t = self.tools.get(tid)
         new = t is None
         old_status = t.get("status") if t else None
+        was_progress = self._progress_tool(t) if t else False
         if new:
             t = self.tools[tid] = {"paths": set()}
             self.steps.append({"type": "tool", "id": tid})
@@ -367,9 +368,16 @@ class Session:
         for k in ("title", "kind", "status", "rawInput"):
             if u.get(k):
                 t[k] = u[k]
-        if new or t.get("status") != old_status:
-            self.last_progress = time.time()
-            self.output_since_progress = False
+        had_diff = t.get("diff", False)
+        t["diff"] = had_diff or any(c.get("type") == "diff" for c in u.get("content") or [])
+        if self._progress_tool(t):
+            if new or not was_progress or t.get("status") != old_status or t["diff"] != had_diff:
+                self.last_progress = time.time()
+                self.output_since_progress = self.read_since_progress = False
+        else:
+            self.output_since_progress = True
+            if t.get("kind") != "think":
+                self.read_since_progress = True
         if t.get("kind") in ("edit", "delete", "move") and self.first_edit_s is None and self.prompt_started is not None:
             self.first_edit_s = time.monotonic() - self.prompt_started
         for loc in u.get("locations") or []:
@@ -381,10 +389,14 @@ class Session:
                     t["paths"].update(ch.get(k) for k in ("path", "oldPath", "newPath", "fromPath", "toPath"))
         t["paths"].discard(None)
 
-    def busy(self):
+    def _progress_tool(self, t):
+        return t.get("kind") in PROGRESS_KINDS or (not t.get("kind") and t.get("diff", False))
+
+    def busy(self, progress_only=False):
         """有工具还在跑（长命令、测试）时不算卡住。"""
         return any(t.get("status") in (None, "pending", "in_progress")
-                   for t in list(self.tools.values()) if t.get("title") or t.get("kind"))
+                   for t in list(self.tools.values()) if (t.get("title") or t.get("kind"))
+                   and (not progress_only or self._progress_tool(t)))
 
     def _account_time(self):
         """只在主线程轮询时累计工具和模型耗时。"""
@@ -408,7 +420,7 @@ class Session:
         if head and head != self.head:
             self.head = head
             self.last_progress = time.time()
-            self.output_since_progress = False
+            self.output_since_progress = self.read_since_progress = False
             if self.first_commit_s is None and self.prompt_started is not None:
                 self.first_commit_s = now - self.prompt_started
 
@@ -651,7 +663,7 @@ class Session:
         self.prompting = True
         blocks = self._blocks(text)
         self.last_activity = self.last_progress = time.time()
-        self.output_since_progress = False
+        self.output_since_progress = self.read_since_progress = False
         self.prompt_started = self.timing_at = time.monotonic()
         try:
             q = self.conn.send("session/prompt", {"sessionId": self.sid, "prompt": blocks})
@@ -679,7 +691,7 @@ class Session:
                 if self.a.idle_timeout and now - self.last_activity > self.a.idle_timeout and not self.busy():
                     raise IdleError(self.a.idle_timeout)
                 if (self.a.work_timeout and self.output_since_progress
-                        and now - self.last_progress > self.a.work_timeout and not self.busy()):
+                        and now - self.last_progress > self.a.work_timeout and not self.busy(progress_only=True)):
                     raise StallError(self.a.work_timeout)
         finally:
             self.prompting = False
@@ -981,7 +993,8 @@ def execute(a, prompt, git_diff=True):
         if s.conn:
             s.cancel()
     except StallError:
-        error = f"连续 {a.work_timeout}s 只有思考或文字、没有调用工具，判定空转，已取消；会话还在，可以续接并要求先动手"
+        activity = "只在读、搜索或抓取，没有写入或执行进展" if s.read_since_progress else "只在想或输出文字，没有动手进展"
+        error = f"连续 {a.work_timeout}s {activity}，判定空转，已取消；会话还在，可以续接并要求先动手"
         error_kind = "stalled"
         if s.conn:
             s.cancel()
@@ -1257,7 +1270,7 @@ def main():
     r.add_argument("--idle-timeout", type=int, default=300,
                    help="连续多少秒没有任何输出、也没有工具在跑就判定卡住，默认 300，0 关闭")
     r.add_argument("--work-timeout", type=int, default=900,
-                   help="连续多少秒只有思考或文字、没有工具进展就判定空转，默认 900，0 关闭")
+                   help="连续多少秒只读或思考、没有写入或执行进展就判定空转，默认 900，0 关闭")
     r.add_argument("--asks", choices=("allow", "deny"), default="allow",
                    help="agent 按本机配置来问权限时：allow 代为放行（默认），deny 当成拒绝")
     r.add_argument("--full", action="store_true", help="输出里附上完整过程 steps：消息、思考、工具调用")
