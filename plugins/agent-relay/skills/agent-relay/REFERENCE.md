@@ -42,7 +42,8 @@
 - 任务说明里要求「每完成一块就提交」，超时也能留下可用成果；结果里的 `commits` 就是按这个设计的。
 - 总超时设 45–60 分钟，大任务拆小。超时后先看 `commits` 和 worktree 的 `git log`，再决定续接（`--resume`）还是换一家。
 - 语义判断在任务说明里写死（某状态用哪个现有字段判断、边界怎么算），不留给对方权衡；要求先提交能跑的最小版本、边写边跑测试，用测试反馈打断空想。
-- `timing` 里 `model_s` 远大于 `tool_s`、`first_tool_s` 很晚，就是在空转；`--work-timeout`（默认 900 秒）会按这个提前取消。只要意见的任务传 0。
+- 另一次 mcode 读了 77 分钟、134 次工具调用、0 次编辑；现在 read / search / fetch / think 和无 kind 且无写入的工具不重置 `--work-timeout`（默认 900 秒），写入、执行或新提交才算进展。只要意见（`--asks deny`）传 `--work-timeout 0`。
+- pi 曾改写约 30 个 main 提交；`history_rewritten: true` 时先把当前 HEAD 保存为临时分支，再按 `warnings` 中的 `git reset --hard <运行前 HEAD>` 退回，最后从临时分支摘取 tree（如 `git restore --source=<临时分支> --staged --worktree :/`）重新提交。
 - 各家倾向：mcode（MiniMax-M3.1-Flash thinking）在要读大量上下文的 UI 重构上会在思考里起草整段代码再反复推翻（一次 240 万字符思考，同一行重写 13 次），适合范围窄、目标明确的任务。
 - `error_kind` 为 `quota` 时这家短时间内不会恢复，把任务在原 worktree 交给别家接手，接手方先审视半成品；`rate_limit` 通常重跑即可。
 - 新建 git worktree 只带受版本控制的文件：被 exclude 的 `.node-version`、`node_modules` 都要自己补，否则对方可能起不来，或第一次提交就卡在钩子上。
@@ -59,7 +60,7 @@
 - grok 的 `set_config_option` 只接受字符串取值，布尔选项还没实现。
 - npx 拉起的适配器是 ACP server，不认 `--version` 之类参数，会一直等 stdin。第一次要下载，`check` 每次调用默认 300 秒，首次可能不够，先跑一次 `options` 预热。
 - 超时要杀整棵进程树：agent 会把 shell 命令放进新的会话，只杀进程组会留下孤儿进程。
-- 运行日志在 `~/.local/state/agent-relay/runs/`，`acp.jsonl` 是完整的 JSON-RPC 往来，每次运行时自动删掉 7 天前的。
+- 运行日志在 `~/.local/state/agent-relay/runs/`，`acp.jsonl` 记录 JSON-RPC 往来，超过 4 KB 的 base64 / `data` 字段只保留大小和 SHA-256 前 12 位，每次运行时自动删掉 7 天前的。
 
 ## 新增一家 agent
 
