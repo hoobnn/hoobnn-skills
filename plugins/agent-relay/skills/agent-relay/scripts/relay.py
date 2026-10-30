@@ -16,7 +16,7 @@ agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则�
 
 run 只往 stdout 打印一个 JSON 对象（多家时是数组，每项多一个 cli）：
     {ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
-     files_changed, timing, commands[, commits][, permissions][, questions][, steps]}
+     files_changed, timing, commands, warnings[, commits, history_rewritten][, permissions][, questions][, steps]}
 完整的 JSON-RPC 往来写到 log 目录的 acp.jsonl；status.json 是给界面看的进度快照（见 Session.write_status）。
 只依赖 Python 3 标准库。
 """
@@ -915,6 +915,35 @@ def _git_head(cwd, timeout=60):
     return (_git_output(cwd, "rev-parse", "--verify", "-q", "HEAD", timeout=timeout) or "").strip() or None
 
 
+def _git_original_refs(cwd, timeout=5):
+    refs = _git_output(cwd, "for-each-ref", "--format=%(refname)", "refs/original/", timeout=timeout)
+    return set(refs.splitlines()) if refs is not None else None
+
+
+def _git_history(cwd, head_before, head_after, refs_before):
+    """历史检查共用 5 秒预算；失败时提示未能确认，不把超时当成改写。"""
+    deadline = time.monotonic() + 5
+    rewritten, warnings = False, []
+    if head_before and head_after:
+        try:
+            r = subprocess.run(["git", "-C", str(cwd), "merge-base", "--is-ancestor", head_before, head_after],
+                               capture_output=True, timeout=max(0.01, deadline - time.monotonic()))
+            rewritten = r.returncode == 1
+            if r.returncode not in (0, 1):
+                warnings.append("无法确认运行前 HEAD 的祖先关系")
+        except (OSError, subprocess.TimeoutExpired):
+            warnings.append("历史祖先检查失败或超时")
+    refs_after = _git_original_refs(cwd, timeout=max(0.01, deadline - time.monotonic()))
+    if refs_before is not None and refs_after is not None:
+        rewritten |= bool(refs_after - refs_before)
+    else:
+        warnings.append("无法确认 refs/original/* 是否新增")
+    if rewritten:
+        warnings.append(f"历史被改写：运行前 HEAD={head_before}，当前 HEAD={head_after}；"
+                        f"先保存当前 tree，再 git reset --hard {head_before}，然后摘取保存的 tree")
+    return rewritten, warnings
+
+
 def _git_snapshot(cwd):
     """工作区里未提交文件的内容指纹；不是 git 仓库时返回 None。"""
     def git(*args):
@@ -1000,6 +1029,7 @@ def execute(a, prompt, git_diff=True):
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
     track_commits, head_before = _git_head_start(cwd) if git_diff else (False, None)
+    refs_before = _git_original_refs(cwd) if track_commits else None
     deadline = time.time() + a.timeout
     s = Session(a, cwd)
     s.git_diff, s.head = track_commits, head_before
@@ -1039,7 +1069,8 @@ def execute(a, prompt, git_diff=True):
             s.close()
         clean_litter()
     after = _git_snapshot(cwd) if before is not None else None
-    head_after = _git_head(cwd) if track_commits else None
+    head_after = _git_head(cwd, timeout=5) if track_commits else None
+    history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])
     if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
@@ -1074,9 +1105,11 @@ def execute(a, prompt, git_diff=True):
         "timing": s.timing(),
         "files_changed": _files_changed(before, after, s.changed_paths() | committed_paths, cwd),
         "commands": s.commands(),
+        "warnings": warnings,
     }
     if commits is not None:
         result["commits"] = commits
+        result["history_rewritten"] = history_rewritten
     if s.permissions:
         result["permissions"] = s.permissions
     if s.questions:
