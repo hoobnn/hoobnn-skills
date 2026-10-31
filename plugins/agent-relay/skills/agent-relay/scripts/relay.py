@@ -4,19 +4,21 @@
 relay 是一个 stdio ACP 客户端：起 agent 子进程，按 ACP v2 草案发起版本协商（请求 2，对端只会 v1 时回落到 v1），
 新建或续接会话、按 config option 切模型 / 推理强度、发 prompt（可带文件和图片），再把结果统一成一个 JSON。
 权限沿用各家本机自己的配置，relay 不改模式；agent 按配置来问时代为放行（relay 是非交互的，没人能当场确认）。
-agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则结束本轮、把问题放进 questions 交回调用方：
+agent 用 elicitation 反问时，--answer 或 --auto-answer 能覆盖必填字段就代答，否则把 questions 交回调用方：
 
     relay.py run <cli[,cli...]> [--model [CLI=]M] [--effort [CLI=]E] [--resume ID] [--file F ...]
-                       [--answer KEY=VALUE ...] [--asks allow|deny] [--full] [--cwd DIR]
+                       [--answer KEY=VALUE ...] [--auto-answer recommended|first] [--asks allow|deny] [--full] [--cwd DIR]
                        [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] [--protocol 1|2] (PROMPT | - | --prompt-file F)
+    relay.py show [OUT_JSON_OR_RUN_DIR] [--latest [CLI]] [--tail N] [--json]
     relay.py options <cli>          # 列出该 agent 的模型、推理强度、模式等 config option
     relay.py check [cli ...]        # 冒烟测试：回复、续会话、写文件、附件
     relay.py install agy            # 下载 ACP 注册表里的 agy ACP server
     relay.py outdated               # 对照 ACP 注册表，列出钉住的适配器有没有新版本
 
-run 只往 stdout 打印一个 JSON 对象（多家时是数组，每项多一个 cli）：
-    {ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
-     files_changed, timing, commands, warnings[, commits, history_rewritten][, permissions][, questions][, steps]}
+run 只往 stdout 打印一个 JSON 对象（多家时是数组）：
+    {cli, cwd, ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
+     files_changed, timing, commands, warnings[, commits, uncommitted, history_rewritten]
+     [, permissions][, questions][, auto_answers][, steps]}
 JSON-RPC 往来写到 log 目录的 acp.jsonl（大块 base64 / data 只记大小和摘要）；status.json 是给界面看的进度快照（见 Session.write_status）。
 只依赖 Python 3 标准库。
 """

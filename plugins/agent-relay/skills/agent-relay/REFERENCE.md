@@ -8,7 +8,7 @@
 - 两个版本的差异集中在 `Session` 里：v1 以 `session/prompt` 响应的 `stopReason` 判结束；v2 的响应只确认插入（返回 `messageId`），结束要等 `state_update` 的 `idle`。v1 续会话优先 `session/resume`，不支持再用 `session/load`（会回放历史，脚本只收发出 prompt 之后的输出）；v2 统一 `session/resume` 不带 `replayFrom`。模式在 v1 走 `session/set_mode`，v2 只有 config option。
 - 注册表的协议矩阵（2026-10-26）把 37 家都记成 v1，但实测 codex-acp 2.3.0、claude-agent-acp 0.97.0 已经能协商出 v2，矩阵不能当准。agy 回 `protocolVersion: 2` 却用 v1 结构和 v1 行为，脚本见到这种响应按 v1 走。
 - 客户端不声明 fs / terminal 能力，agent 发来这类请求一律回 method-not-found。
-- 客户端声明 form 模式的 elicitation（不声明 url 模式，那要人去浏览器里操作）。收到反问时，`--answer` 优先，`--auto-answer recommended` 选带推荐标记的选项，`first` 再回退到第一项；答案覆盖全部必填字段就回 `accept` 并记录自动代答；否则回 `cancel`、发 `session/cancel` 结束本轮，把问题交回调用方。会话还在，续接即可。实测 claude-agent-acp 只在客户端声明 form 时才把 AskUserQuestion 转成 elicitation，字段名是 `question_0`、`question_0_custom`（自由填写）这种；codex-acp 也实现了 elicitation。
+- 客户端声明 form 模式的 elicitation（不声明 url 模式，那要人去浏览器里操作）。收到反问时，`--answer` 优先，`--auto-answer recommended` 只识别标题以 Recommended / 推荐开头或以（Recommended）/（推荐）结尾且不含否定词的选项，`first` 再回退到第一项；答案覆盖全部必填字段就回 `accept` 并记录自动代答；否则回 `cancel`、发 `session/cancel` 结束本轮，把问题交回调用方。会话还在，续接即可。实测 claude-agent-acp 只在客户端声明 form 时才把 AskUserQuestion 转成 elicitation，字段名是 `question_0`、`question_0_custom`（自由填写）这种；codex-acp 也实现了 elicitation。
 - 附件按 prompt 能力发：图片发 `image` 块；文本文件不超过 1 MB 且对端声明了 `embeddedContext` 时发 `resource` 块嵌入内容，否则发 `resource_link`（baseline，所有 agent 都得支持）。prompt 能力 v1 在 `agentCapabilities.promptCapabilities`（布尔），v2 在 `capabilities.session.prompt`（对象，`{}` 表示支持）。
 
 ## 各家实测（2026-10-27）
