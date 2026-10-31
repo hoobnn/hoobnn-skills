@@ -1,27 +1,5 @@
 #!/usr/bin/env python3
-"""通过 ACP（Agent Client Protocol）调用另一个 agent：grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude。
-
-relay 是一个 stdio ACP 客户端：起 agent 子进程，按 ACP v2 草案发起版本协商（请求 2，对端只会 v1 时回落到 v1），
-新建或续接会话、按 config option 切模型 / 推理强度、发 prompt（可带文件和图片），再把结果统一成一个 JSON。
-权限沿用各家本机自己的配置，relay 不改模式；agent 按配置来问时代为放行（relay 是非交互的，没人能当场确认）。
-agent 用 elicitation 反问时，--answer 或 --auto-answer 能覆盖必填字段就代答，否则把 questions 交回调用方：
-
-    relay.py run <cli[,cli...]> [--model [CLI=]M] [--effort [CLI=]E] [--resume ID] [--file F ...]
-                       [--answer KEY=VALUE ...] [--auto-answer recommended|first] [--asks allow|deny] [--full] [--cwd DIR]
-                       [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] [--protocol 1|2] (PROMPT | - | --prompt-file F)
-    relay.py show [OUT_JSON_OR_RUN_DIR] [--latest [CLI]] [--tail N] [--json]
-    relay.py options <cli>          # 列出该 agent 的模型、推理强度、模式等 config option
-    relay.py check [cli ...]        # 冒烟测试：回复、续会话、写文件、附件
-    relay.py install agy            # 下载 ACP 注册表里的 agy ACP server
-    relay.py outdated               # 对照 ACP 注册表，列出钉住的适配器有没有新版本
-
-run 只往 stdout 打印一个 JSON 对象（多家时是数组）：
-    {cli, cwd, ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
-     files_changed, timing, commands, warnings[, commits, uncommitted, history_rewritten]
-     [, permissions][, questions][, auto_answers][, steps]}
-JSON-RPC 往来写到 log 目录的 acp.jsonl（大块 base64 / data 只记大小和摘要）；status.json 是给界面看的进度快照（见 Session.write_status）。
-只依赖 Python 3 标准库。
-"""
+"""通过 ACP v1/v2 调用其他 AI 编程 agent，统一结果 JSON；仅依赖 Python 标准库。"""
 
 import argparse
 import base64
@@ -817,14 +795,17 @@ def _coerce(value, prop):
     return value
 
 
+def _option_pairs(opt):
+    pairs = []
+    for option in opt.get("options") or []:
+        for value in option["options"] if "options" in option else [option]:
+            if "value" in value:
+                pairs.append((value["value"], value.get("name") or ""))
+    return pairs
+
+
 def _flat_values(opt):
-    vals = []
-    for o in opt.get("options") or []:
-        if "options" in o:  # 分组
-            vals += [x.get("value") for x in o["options"]]
-        elif "value" in o:
-            vals.append(o["value"])
-    return vals
+    return [value for value, _ in _option_pairs(opt)]
 
 
 def _flat(value):
@@ -838,9 +819,7 @@ def _flat(value):
 
 def _match(wanted, opt):
     """按 value 精确、name 精确、value 后缀、唯一子串的顺序匹配用户写的模型 / 强度，返回 (取值, 候选)。"""
-    pairs = []
-    for o in opt.get("options") or []:
-        pairs += [(x.get("value"), x.get("name") or "") for x in (o["options"] if "options" in o else [o])]
+    pairs = _option_pairs(opt)
     flat = {v: _flat(v) for v, _ in pairs}
     w = wanted.lower()
     for test in (lambda v, n: wanted in (v, flat[v]), lambda v, n: n.lower() == w,

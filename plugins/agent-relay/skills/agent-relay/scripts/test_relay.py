@@ -69,6 +69,11 @@ class RelayTests(unittest.TestCase):
         self.assertIsNone(relay._auto_choice({'enum': ['提交（Recommended）']}, 'recommended'))
         self.assertEqual(relay._auto_choice({'oneOf': [{'const': 'wait', 'title': '不推荐'}]}, 'first'), 'wait')
 
+    def test_grouped_model_options_match_by_suffix(self):
+        opt = {'options': [{'name': 'provider', 'options': [{'value': 'provider/sonnet', 'name': 'Sonnet'}]}]}
+        self.assertEqual(relay._flat_values(opt), ['provider/sonnet'])
+        self.assertEqual(relay._match('sonnet', opt), ('provider/sonnet', ['provider/sonnet']))
+
     def test_resume_mismatch_does_not_start_agent(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)):
             old = Path(tmp) / 'runs' / '20260101-opencode-old'
