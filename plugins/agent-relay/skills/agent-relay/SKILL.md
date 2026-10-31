@@ -21,9 +21,10 @@ python3 "<SKILL_ROOT>/scripts/relay.py" options <cli>
 - `--asks allow`（默认）代答本机配置要求确认的权限，`deny` 拒绝这些请求；本机配置本来拒绝的操作不会放行。
 - `--file` 可重复附加文件；图片需对端模型支持，文本可能内嵌，也可能只发文件链接让对方读取。
 - 结果先看 `ok`、`text`、`error_kind`、`warnings`；`session_id` 供 `--resume`，`log` 是运行目录，`show` 可看摘要或进度，`--full` 另附完整 `steps`。
-- 验收看 `files_changed`、`commands`；单家 git 任务还看 `commits`、`uncommitted`、`history_rewritten`。多家并行时改动仅靠工具上报，不能当作完整 diff。
-- `error_kind=asked` 时读 `questions`，用 `--resume SID` 续接，再以 `--answer 字段=取值` 代答（多选用逗号）或在 prompt 里直接回答；能自行判断就代答，拿不准再问用户。
-- `--answer` 优先于自动代答；`--auto-answer recommended` 只选标题明确标注推荐且不否定的选项，`first` 无推荐项时选第一项，无法覆盖必填字段仍返回 `questions`。
+- 验收看 `files_changed`、`commands`；单家 git 任务还看 `commits`、`uncommitted`、`history_rewritten`，并核对 `cost_usd` 和 `auto_answers`（如有）。多家并行时改动仅靠工具上报，不能当作完整 diff。
+- `error_kind=asked` 时读 `questions`；上一轮 elicitation 已取消，`--answer` 只在新一轮 agent 再次发出对应字段的反问时生效。
+- 带 `--resume SID --answer 字段=取值` 续接时，要在 prompt 里要求对方重新提问（多选用逗号）；也可以直接把答案写进 prompt。能自行判断就代答，拿不准再问用户。
+- `--answer` 优先于自动代答；`--auto-answer recommended` 只认标题以 `Recommended` / `推荐` 开头，或以 `（Recommended）` / `（推荐）` 结尾且不含否定词的选项，只在取值里标记或其他写法不识别。`first` 无推荐项时选第一项；无法覆盖必填字段仍返回 `questions`。
 - `timeout` / `idle` / `stalled` 会取消本轮但保留会话；先审视产物再续接或重跑。`quota` 换家，`rate_limit` 可重试，`auth` 先登录，`resume_cwd` 换目录须开新会话；其他失败看 `error` 和日志。
 - 默认总 / 空闲 / 空转超时为 1200 / 300 / 900 秒；空转只把写入、执行或新提交当进展，空闲与空转超时均可设 0 关闭。评审等只读任务用 `--asks deny --work-timeout 0`，避免长思考被误杀。
 
