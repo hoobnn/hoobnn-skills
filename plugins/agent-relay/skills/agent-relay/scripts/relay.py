@@ -908,32 +908,35 @@ def _litter_guard(cli, cwd):
     return clean
 
 
-def _git_output(cwd, *args, timeout=60):
-    """取 git 输出；失败或超时都当作没有。"""
+def _git_run(cwd, *args, timeout=60):
     try:
-        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=timeout)
+        return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return r.stdout.decode(errors="replace") if r.returncode == 0 else None
+
+
+def _git_output(cwd, *args, timeout=60):
+    r = _git_run(cwd, *args, timeout=timeout)
+    return r.stdout.decode(errors="replace") if r is not None and r.returncode == 0 else None
 
 
 def _git_head_start(cwd):
     """返回（是否追踪提交，HEAD）；空仓库是（True, None）。"""
-    cmd = ["git", "-C", str(cwd)]
-    try:
-        repo = subprocess.run([*cmd, "rev-parse", "--git-dir"], capture_output=True, timeout=60)
-        if repo.returncode:
-            return False, None
-        head = subprocess.run([*cmd, "rev-parse", "--verify", "-q", "HEAD"], capture_output=True, timeout=60)
-        if head.returncode:
-            ref = subprocess.run([*cmd, "symbolic-ref", "-q", "HEAD"], capture_output=True, timeout=60)
-            if ref.returncode:
-                return False, None
-            name = ref.stdout.decode(errors="replace").strip()
-            present = subprocess.run([*cmd, "show-ref", "--verify", "--quiet", name], capture_output=True, timeout=60)
-            return present.returncode == 1, None
-    except (OSError, subprocess.TimeoutExpired):
+    repo = _git_run(cwd, "rev-parse", "--git-dir")
+    if repo is None or repo.returncode:
         return False, None
+    head = _git_run(cwd, "rev-parse", "--verify", "-q", "HEAD")
+    if head is None:
+        return False, None
+    if head.returncode:
+        ref = _git_run(cwd, "symbolic-ref", "-q", "HEAD")
+        if ref is None or ref.returncode:
+            return False, None
+        name = ref.stdout.decode(errors="replace").strip()
+        present = _git_run(cwd, "show-ref", "--verify", "--quiet", name)
+        if present is None:
+            return False, None
+        return present.returncode == 1, None
     return True, head.stdout.decode(errors="replace").strip() or None
 
 
@@ -951,14 +954,14 @@ def _git_history(cwd, head_before, head_after, refs_before):
     deadline = time.monotonic() + 5
     rewritten, warnings = False, []
     if head_before and head_after:
-        try:
-            r = subprocess.run(["git", "-C", str(cwd), "merge-base", "--is-ancestor", head_before, head_after],
-                               capture_output=True, timeout=max(0.01, deadline - time.monotonic()))
+        r = _git_run(cwd, "merge-base", "--is-ancestor", head_before, head_after,
+                     timeout=max(0.01, deadline - time.monotonic()))
+        if r is None:
+            warnings.append("历史祖先检查失败或超时")
+        else:
             rewritten = r.returncode == 1
             if r.returncode not in (0, 1):
                 warnings.append("无法确认运行前 HEAD 的祖先关系")
-        except (OSError, subprocess.TimeoutExpired):
-            warnings.append("历史祖先检查失败或超时")
     refs_after = _git_original_refs(cwd, timeout=max(0.01, deadline - time.monotonic()))
     if refs_before is not None and refs_after is not None:
         rewritten |= bool(refs_after - refs_before)
@@ -972,14 +975,11 @@ def _git_history(cwd, head_before, head_after, refs_before):
 
 def _git_snapshot(cwd):
     """工作区里未提交文件的内容指纹；不是 git 仓库时返回 None。"""
-    def git(*args):
-        return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=60)
-    try:
-        top = git("rev-parse", "--show-toplevel")
-        status = git("status", "--porcelain=v1", "-z", "--untracked-files=all")
-    except (OSError, subprocess.TimeoutExpired):
+    top = _git_run(cwd, "rev-parse", "--show-toplevel")
+    if top is None or top.returncode:
         return None
-    if top.returncode or status.returncode:
+    status = _git_run(cwd, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+    if status is None or status.returncode:
         return None
     root = Path(top.stdout.decode().strip())
     snap, entries = {}, status.stdout.decode(errors="replace").split("\0")
