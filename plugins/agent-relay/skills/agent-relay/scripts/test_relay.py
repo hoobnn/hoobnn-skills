@@ -1,5 +1,6 @@
 import tempfile
 import json
+import signal
 import subprocess
 import unittest
 from pathlib import Path
@@ -28,6 +29,22 @@ class RelayTests(unittest.TestCase):
             self.assertEqual(result['error_kind'], 'asked')
             self.assertIn('--answer', result['error'])
             self.assertTrue(result['questions'])
+
+    def test_questions_preserve_relay_cancellation_reason(self):
+        for exception, kind in ((TimeoutError, 'timeout'), (relay.IdleError, 'idle'),
+                                (relay.StallError, 'stalled'), (relay.KilledError, 'killed')):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp, \
+                 patch.object(relay, 'STATE_DIR', Path(tmp)), patch.object(relay, 'KILL_SIGNAL', signal.SIGTERM), \
+                 patch.object(relay.Session, 'start'), patch.object(relay.Session, 'open'), \
+                 patch.object(relay.Session, 'configure'):
+                def fail(session, prompt, deadline):
+                    session.questions.append({'message': '是否提交？', 'fields': {}})
+                    raise exception()
+                with patch.object(relay.Session, 'prompt', fail):
+                    result = relay.execute(relay._ns(cli='opencode', cwd=tmp), 'test')
+                self.assertEqual(result['error_kind'], kind)
+                self.assertTrue(result['questions'])
+                self.assertNotIn('--answer', result['error'])
 
     def test_auto_answer_choices_and_explicit_override(self):
         s = relay.Session(relay._ns(cli='opencode', auto_answer='recommended', answers={'x': 'manual'}), Path('/tmp'))
