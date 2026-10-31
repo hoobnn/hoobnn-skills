@@ -1,6 +1,6 @@
 {
   "name": "agent-relay",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "在当前 agent 里调用 grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude 派活、续会话、索取第二意见或并行评审，统一处理权限、模型、附件与反问，并报告改动文件和执行命令。",
   "author": {
     "name": "hoobnn",
