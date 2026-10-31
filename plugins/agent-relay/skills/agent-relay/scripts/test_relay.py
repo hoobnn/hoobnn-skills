@@ -56,6 +56,17 @@ class RelayTests(unittest.TestCase):
         self.assertIsNone(relay._auto_choice({'enum': ['a']}, 'recommended'))
         self.assertEqual(relay._auto_choice({'enum': ['a']}, 'first'), 'a')
 
+    def test_recommended_title_is_conservative(self):
+        for title in ('不推荐，等用户确认', 'Not recommended', '推荐，但不要提交',
+                      'Recommended: no action', '请选择推荐方案', '建议 (not recommended)'):
+            with self.subTest(title=title):
+                self.assertIsNone(relay._auto_choice({'oneOf': [{'const': 'wait', 'title': title}]}, 'recommended'))
+        for title in ('Recommended: submit', '推荐提交', '提交（Recommended）', '提交(推荐)'):
+            with self.subTest(title=title):
+                self.assertEqual(relay._auto_choice({'oneOf': [{'const': 'yes', 'title': title}]}, 'recommended'), 'yes')
+        self.assertIsNone(relay._auto_choice({'enum': ['提交（Recommended）']}, 'recommended'))
+        self.assertEqual(relay._auto_choice({'oneOf': [{'const': 'wait', 'title': '不推荐'}]}, 'first'), 'wait')
+
     def test_resume_mismatch_does_not_start_agent(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)):
             old = Path(tmp) / 'runs' / '20260101-opencode-old'

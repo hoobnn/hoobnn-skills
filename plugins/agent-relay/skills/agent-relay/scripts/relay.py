@@ -792,7 +792,12 @@ def _auto_choice(prop, mode):
         values = prop.get("enum") or items.get("enum") or []
         titles = prop.get("enumNames") or items.get("enumNames") or []
         pairs = [(v, titles[i] if i < len(titles) else "") for i, v in enumerate(values)]
-    recommended = [v for v, title in pairs if re.search(r"recommended|推荐", str(title) + " " + str(v), re.I)]
+    def is_recommended(title):
+        title = str(title or "").strip()
+        if re.search(r"不|别|勿|\b(?:not|no)\b", title, re.I):
+            return False
+        return bool(re.search(r"^(?:recommended\b|推荐)|[（(](?:recommended|推荐)[）)]$", title, re.I))
+    recommended = [v for v, title in pairs if is_recommended(title)]
     value = recommended[0] if recommended else (pairs[0][0] if mode == "first" and pairs else None)
     return [value] if value is not None and prop.get("type") == "array" else value
 

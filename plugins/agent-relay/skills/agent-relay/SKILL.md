@@ -28,7 +28,7 @@ python3 "<SKILL_ROOT>/scripts/relay.py" outdated       # 对照 ACP 注册表看
 - 单家且在 git 仓库里运行时，`commits` 按新到旧列出运行期间新增的提交。运行前 HEAD 不再是当前 HEAD 的祖先或新增 `refs/original/*` 时，`history_rewritten` 为 true，`warnings` 给出前后 HEAD 和恢复提示。`timing` 给出总耗时、工具/模型耗时及首次工具、编辑、提交的时间，运行中也实时写入 `status.json`。
 - `error_kind` 把失败分为 `timeout`、`idle`、`stalled`、`killed`（SIGTERM / SIGINT）、`asked`、`resume_cwd`、`quota`、`rate_limit`、`auth` 或 `error`，没有错误时为 `null`；原始 `error` 文本保持不变。
 - 对方反问（ACP elicitation，比如 claude 的 AskUserQuestion）时，relay 结束本轮，`ok` 为 false，问题放在 `questions` 里（字段名、说明、可选值）。回答方式有两种：一是带 `--resume` 和 `--answer 字段=取值`（多选用逗号分隔）重跑，并在 prompt 里让它接着问，它再问时 relay 自动代答；二是直接在 prompt 里写答案。能自己判断的就自己答，拿不准的再问用户。
-- `--auto-answer recommended` 选择标题或取值中标有 Recommended / 推荐的选项；`first` 没有推荐项时选第一项。默认关闭，`--answer` 优先；无法决定必填字段时仍交回问题。成功自动代答记入 `auto_answers` 和 ACP 日志。
+- `--auto-answer recommended` 只识别标题以 Recommended / 推荐开头或以（Recommended）/（推荐）结尾且不含否定词的选项；只在取值中标记、或采用其他写法的推荐项不会识别；`first` 没有推荐项时选第一项。默认关闭，`--answer` 优先；无法决定必填字段时仍交回问题。成功自动代答记入 `auto_answers` 和 ACP 日志。
 - `uncommitted` 是单家 git 运行中发生变化且结束时仍未提交的路径；失败时有此类文件会提醒先审视。`--resume` 会检查已记录的会话 cwd；换目录请开新会话，在 prompt 写入上下文。
 - `show` 读取结果文件、运行目录或 `--latest [CLI]`，显示结果摘要及回答末尾（`--tail` 默认 2000 字符，`--json` 输出精简 JSON）；运行中显示状态与最近几步。
 - 每次运行的目录（输出里的 `log`）下，`status.json` 是给界面看的进度快照：agent 工作期间约每秒重写一次（当前状态、工具完成数、最近 40 步，以及发起方 Claude Code 会话的 `caller_session`），结束时写最终状态。hoobnn-agent-mods 的 `relay-bar` mod 读它，在 Claude Code 的输入框上方显示派出去的活进行到哪了。
