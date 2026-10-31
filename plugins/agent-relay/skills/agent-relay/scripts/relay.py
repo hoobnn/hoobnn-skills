@@ -286,6 +286,7 @@ class Session:
         self.saw_active = False
         self.answers = dict(a.answers)
         self.questions = []
+        self.auto_answers = []
         self.permissions = []
         self.tools = {}  # toolCallId -> 合并后的工具调用
         self.steps = []  # --full：按顺序的消息、思考、工具调用
@@ -333,8 +334,20 @@ class Session:
         props = schema.get("properties") or {}
         required = schema.get("required") or []
         content = {k: _coerce(v, props[k]) for k, v in self.answers.items() if k in props}
+        automatic = {}
+        if self.a.auto_answer:
+            for k, prop in props.items():
+                if k not in content:
+                    value = _auto_choice(prop, self.a.auto_answer)
+                    if value is not None:
+                        automatic[k] = value
+            content.update(automatic)
         if content and all(k in content for k in required):
-            for k in content:
+            if automatic:
+                self.auto_answers.append({"message": p.get("message"), "content": automatic})
+                if self.conn:
+                    self.conn._record("auto_answer", self.auto_answers[-1])
+            for k in content.keys() & self.answers.keys():
                 del self.answers[k]  # 用过的答案不再答下一个问题
             return {"action": "accept", "content": content}
         self.questions.append({"message": p.get("message"),
@@ -770,6 +783,20 @@ def _field(prop, required):
     return {k: v for k, v in out.items() if v not in (None, [])}
 
 
+def _auto_choice(prop, mode):
+    items = prop.get("items") or {}
+    choices = prop.get("oneOf") or prop.get("anyOf") or items.get("oneOf") or items.get("anyOf")
+    if choices:
+        pairs = [(o.get("const"), o.get("title", "")) for o in choices if "const" in o]
+    else:
+        values = prop.get("enum") or items.get("enum") or []
+        titles = prop.get("enumNames") or items.get("enumNames") or []
+        pairs = [(v, titles[i] if i < len(titles) else "") for i, v in enumerate(values)]
+    recommended = [v for v, title in pairs if re.search(r"recommended|推荐", str(title) + " " + str(v), re.I)]
+    value = recommended[0] if recommended else (pairs[0][0] if mode == "first" and pairs else None)
+    return [value] if value is not None and prop.get("type") == "array" else value
+
+
 def _coerce(value, prop):
     kind = prop.get("type")
     if kind == "integer":
@@ -980,7 +1007,7 @@ def _git_snapshot(cwd):
             i += 1  # 改名后面跟着原路径
         f = root / e[3:]
         try:
-            snap[str(f)] = hashlib.sha1(f.read_bytes()).hexdigest() if f.is_file() else e[:2]
+            snap[str(f)] = e[:2] + (hashlib.sha1(f.read_bytes()).hexdigest() if f.is_file() else "")
         except OSError:
             snap[str(f)] = e[:2]
     return snap
@@ -1028,6 +1055,7 @@ def _error_kind(error):
     if not error:
         return None
     patterns = (
+        ("resume_cwd", r"does not belong to cwd"),
         ("quota", r"usage limit|quota|insufficient[_ ]?(balance|credit|funds)|credit balance|额度|余额不足|限额"),
         ("rate_limit", r"rate[ _-]?limit|too many requests|\b429\b"),
         ("auth", r"authenticat|unauthori[sz]ed|invalid api key|api key.{0,40}invalid|\b401\b"),
@@ -1035,9 +1063,24 @@ def _error_kind(error):
     return next((kind for kind, pattern in patterns if re.search(pattern, error, re.IGNORECASE)), "error")
 
 
+def _resume_cwd(session_id):
+    runs = STATE_DIR / "runs"
+    if not runs.is_dir():
+        return None
+    for path in sorted(runs.glob("*/result.json"), key=lambda p: p.parent.name, reverse=True):
+        try:
+            result = json.loads(path.read_text())
+            if result.get("session_id") == session_id and result.get("cwd"):
+                return result["cwd"]
+        except (OSError, ValueError, TypeError):
+            continue
+    return None
+
+
 def execute(a, prompt, git_diff=True):
     """跑一轮，返回统一结果。git_diff=False 时只按工具调用统计改动（多家并发跑同一目录时互相分不清）。"""
     cwd = Path(a.cwd or os.getcwd()).resolve()
+    previous_cwd = _resume_cwd(a.resume) if a.resume else None
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
@@ -1050,6 +1093,8 @@ def execute(a, prompt, git_diff=True):
     s.write_status("starting", force=True)
     error = error_kind = None
     try:
+        if previous_cwd and Path(previous_cwd).resolve() != cwd:
+            raise RuntimeError(f"会话原 cwd 为 {previous_cwd}，本次为 {cwd}；换目录请开新会话，把上下文写进 prompt")
         s.start(run_dir)
         s.open()
         s.configure()
@@ -1075,6 +1120,8 @@ def execute(a, prompt, git_diff=True):
             s.cancel()
     except (RpcError, RuntimeError) as e:
         error = str(e)
+        if previous_cwd and Path(previous_cwd).resolve() != cwd:
+            error_kind = "resume_cwd"
     except Exception as e:  # 协议对不上也要把日志位置交回去
         error = f"{type(e).__name__}: {e}"
     finally:
@@ -1104,11 +1151,15 @@ def execute(a, prompt, git_diff=True):
     text = s.text()
     final_error = error or (None if text else "agent 没有返回文本")
     error_kind = error_kind or _error_kind(final_error)
+    if error_kind == "resume_cwd" and "换目录" not in final_error:
+        final_error += "；换目录请开新会话，把上下文写进 prompt"
     commits, committed_paths = git_info or (None, set())
     result = {
         "ok": not error and bool(text),
         "text": text,
         "session_id": s.sid,
+        "cli": a.cli,
+        "cwd": str(cwd),
         "cost_usd": s.cost,
         "error": final_error,
         "error_kind": error_kind,
@@ -1120,6 +1171,13 @@ def execute(a, prompt, git_diff=True):
         "commands": s.commands(),
         "warnings": warnings,
     }
+    if after is not None:
+        changed = {f for f in after if before.get(f) != after[f]} | (committed_paths & after.keys())
+        result["uncommitted"] = _files_changed(None, None, changed, cwd)
+        if not result["ok"] and changed:
+            warnings.append(f"有 {len(changed)} 个未提交改动，续接或换人接手前先审视（可 git diff 查看）")
+    if s.auto_answers:
+        result["auto_answers"] = s.auto_answers
     if commits is not None:
         result["commits"] = commits
         result["history_rewritten"] = history_rewritten
@@ -1141,7 +1199,7 @@ def execute(a, prompt, git_diff=True):
 
 def _ns(**kw):
     base = dict(cli=None, model=None, effort=None, resume=None, cwd=None, timeout=300,
-                protocol=LATEST_PROTOCOL, files=[], answers={}, asks="allow", full=False, idle_timeout=300, work_timeout=0)
+                protocol=LATEST_PROTOCOL, files=[], answers={}, auto_answer=None, asks="allow", full=False, idle_timeout=300, work_timeout=0)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -1345,6 +1403,7 @@ def main():
                    help="附件，可重复：图片内联，文本文件按对端能力嵌入或发链接")
     r.add_argument("--answer", action="append", default=[],
                    help="代答 agent 的反问，写成 字段=取值，可重复；字段名见上一轮输出的 questions")
+    r.add_argument("--auto-answer", choices=("recommended", "first"), help="自动选择推荐选项；first 在没有推荐时选第一项")
     r.add_argument("--cwd", help="工作目录，默认当前目录")
     r.add_argument("--timeout", type=int, default=1200, help="秒，默认 1200")
     r.add_argument("--idle-timeout", type=int, default=300,
