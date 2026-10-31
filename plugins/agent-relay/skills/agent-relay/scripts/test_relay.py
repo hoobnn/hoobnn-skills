@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 import subprocess
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import relay
@@ -37,13 +38,16 @@ class RelayTests(unittest.TestCase):
                                 (relay.StallError, 'stalled'), (relay.KilledError, 'killed')):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp, \
                  patch.object(relay, 'STATE_DIR', Path(tmp)), patch.object(relay, 'KILL_SIGNAL', signal.SIGTERM), \
-                 patch.object(relay.Session, 'start'), patch.object(relay.Session, 'open'), \
-                 patch.object(relay.Session, 'configure'):
+                 patch.object(relay.Session, 'open'), patch.object(relay.Session, 'configure'), \
+                 patch.object(relay.Session, 'close'), patch.object(relay.Session, 'cancel') as cancel:
+                def start(session, run_dir):
+                    session.conn = SimpleNamespace(proc=SimpleNamespace(returncode=0))
                 def fail(session, prompt, deadline):
                     session.questions.append({'message': '是否提交？', 'fields': {}})
                     raise exception()
-                with patch.object(relay.Session, 'prompt', fail):
+                with patch.object(relay.Session, 'start', start), patch.object(relay.Session, 'prompt', fail):
                     result = relay.execute(relay._ns(cli='opencode', cwd=tmp), 'test')
+                cancel.assert_called_once_with()
                 self.assertEqual(result['error_kind'], kind)
                 self.assertTrue(result['questions'])
                 self.assertNotIn('--answer', result['error'])
@@ -68,6 +72,11 @@ class RelayTests(unittest.TestCase):
                 self.assertEqual(relay._auto_choice({'oneOf': [{'const': 'yes', 'title': title}]}, 'recommended'), 'yes')
         self.assertIsNone(relay._auto_choice({'enum': ['提交（Recommended）']}, 'recommended'))
         self.assertEqual(relay._auto_choice({'oneOf': [{'const': 'wait', 'title': '不推荐'}]}, 'first'), 'wait')
+
+    def test_grouped_model_options_match_by_suffix(self):
+        opt = {'options': [{'name': 'provider', 'options': [{'value': 'provider/sonnet', 'name': 'Sonnet'}]}]}
+        self.assertEqual(relay._flat_values(opt), ['provider/sonnet'])
+        self.assertEqual(relay._match('sonnet', opt), ('provider/sonnet', ['provider/sonnet']))
 
     def test_resume_mismatch_does_not_start_agent(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)):
@@ -127,6 +136,30 @@ class RelayTests(unittest.TestCase):
                 result = relay.execute(relay._ns(cli='opencode', cwd=tmp), 'test')
             self.assertEqual(result['uncommitted'], ['new'])
             self.assertTrue(any('1 个未提交' in w for w in result['warnings']))
+
+    def test_full_agent_message_replaces_chunked_text(self):
+        s = relay.Session(relay._ns(cli='opencode'), Path('/tmp'))
+        s.prompting = True
+        for kind, content in (('agent_message_chunk', {'type': 'text', 'text': '草稿'}),
+                              ('agent_message', [{'type': 'text', 'text': '最终'},
+                                                 [{'type': 'text', 'text': '不应展开'}],
+                                                 {'type': 'text', 'text': '回答'}])):
+            s.on_notify('session/update', {'update': {'sessionUpdate': kind, 'messageId': 'm', 'content': content}})
+        self.assertEqual(s.text(), '最终回答')
+        s.on_notify('session/update', {'update': {'sessionUpdate': 'agent_message', 'messageId': 'm',
+                                                 'content': {'type': 'text', 'text': '非列表'}}})
+        self.assertIsNone(s.text())
+
+    def test_thought_content_list_and_non_list_forms(self):
+        s = relay.Session(relay._ns(cli='opencode'), Path('/tmp'))
+        s.prompting = True
+        cases = [([{'type': 'text', 'text': '分析'},
+                   [{'type': 'text', 'text': '不应展开'}],
+                   {'type': 'text', 'text': '完成'}], '分析完成'),
+                 ({'type': 'text', 'text': '单块思考'}, '单块思考')]
+        for content, expected in cases:
+            s.on_notify('session/update', {'update': {'sessionUpdate': 'agent_thought', 'content': content}})
+            self.assertEqual(s.steps[-1], {'type': 'thought', 'text': expected})
 
     def test_show_result_and_running_status(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,27 +1,5 @@
 #!/usr/bin/env python3
-"""通过 ACP（Agent Client Protocol）调用另一个 agent：grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude。
-
-relay 是一个 stdio ACP 客户端：起 agent 子进程，按 ACP v2 草案发起版本协商（请求 2，对端只会 v1 时回落到 v1），
-新建或续接会话、按 config option 切模型 / 推理强度、发 prompt（可带文件和图片），再把结果统一成一个 JSON。
-权限沿用各家本机自己的配置，relay 不改模式；agent 按配置来问时代为放行（relay 是非交互的，没人能当场确认）。
-agent 用 elicitation 反问时，--answer 或 --auto-answer 能覆盖必填字段就代答，否则把 questions 交回调用方：
-
-    relay.py run <cli[,cli...]> [--model [CLI=]M] [--effort [CLI=]E] [--resume ID] [--file F ...]
-                       [--answer KEY=VALUE ...] [--auto-answer recommended|first] [--asks allow|deny] [--full] [--cwd DIR]
-                       [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] [--protocol 1|2] (PROMPT | - | --prompt-file F)
-    relay.py show [OUT_JSON_OR_RUN_DIR] [--latest [CLI]] [--tail N] [--json]
-    relay.py options <cli>          # 列出该 agent 的模型、推理强度、模式等 config option
-    relay.py check [cli ...]        # 冒烟测试：回复、续会话、写文件、附件
-    relay.py install agy            # 下载 ACP 注册表里的 agy ACP server
-    relay.py outdated               # 对照 ACP 注册表，列出钉住的适配器有没有新版本
-
-run 只往 stdout 打印一个 JSON 对象（多家时是数组）：
-    {cli, cwd, ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
-     files_changed, timing, commands, warnings[, commits, uncommitted, history_rewritten]
-     [, permissions][, questions][, auto_answers][, steps]}
-JSON-RPC 往来写到 log 目录的 acp.jsonl（大块 base64 / data 只记大小和摘要）；status.json 是给界面看的进度快照（见 Session.write_status）。
-只依赖 Python 3 标准库。
-"""
+"""通过 ACP v1/v2 调用其他 AI 编程 agent，统一结果 JSON；仅依赖 Python 标准库。"""
 
 import argparse
 import base64
@@ -92,8 +70,12 @@ def _platform_key():
     return f"{sys.platform}-{machine}"
 
 
+def _agy_dir():
+    return STATE_DIR / "agents" / "agy" / AGY_ACP["version"]
+
+
 def _agy_cmd():
-    path = STATE_DIR / "agents" / "agy" / AGY_ACP["version"] / AGY_ACP["cmd"]
+    path = _agy_dir() / AGY_ACP["cmd"]
     archive = AGY_ACP["archives"].get(_platform_key())
     return [str(path), *archive[2]] if path.exists() and archive else None
 
@@ -119,6 +101,11 @@ def agent_cmd(cli):
     return cmd() if callable(cmd) else list(cmd)
 
 
+def _validate_cli(cli):
+    if cli not in AGENTS:
+        sys.exit(f"未知 agent：{cli}，可选 {', '.join(AGENTS)}")
+
+
 # ---------------------------------------------------------------- JSON-RPC over stdio
 
 
@@ -141,7 +128,7 @@ class KilledError(Exception):
     pass
 
 
-def _on_signal(signum, frame):
+def _on_signal(signum, _frame):
     global KILL_SIGNAL
     if KILLED.is_set():
         os._exit(128 + signum)
@@ -171,7 +158,6 @@ class Connection:
                                      stderr=self.stderr, start_new_session=True)
         self.on_request, self.on_notify = on_request, on_notify
         self.pending, self.lock, self.next_id = {}, threading.Lock(), 0
-        self.closed = threading.Event()
         threading.Thread(target=self._read, daemon=True).start()
 
     def _record(self, direction, msg):
@@ -183,7 +169,7 @@ class Connection:
         try:
             self.proc.stdin.write((json.dumps(msg, ensure_ascii=False) + "\n").encode())
             self.proc.stdin.flush()
-        except (BrokenPipeError, ValueError, OSError):
+        except (ValueError, OSError):
             pass
 
     def _read(self):
@@ -199,7 +185,6 @@ class Connection:
             for m in msg if isinstance(msg, list) else [msg]:
                 self._record("<", m)
                 self._dispatch(m)
-        self.closed.set()
         with self.lock:
             for q in self.pending.values():
                 q.put({"error": {"code": -32099, "message": "agent 进程已退出"}})
@@ -376,8 +361,9 @@ class Session:
             self.output_since_progress = True
         self.write_status()
         if kind == "agent_message_chunk":
-            self._append(u.get("messageId"), _text(u.get("content")))
-            self._step("message", _text(u.get("content")))
+            text = _text(u.get("content"))
+            self._append(u.get("messageId"), text)
+            self._step("message", text)
         elif kind == "agent_message":
             self._replace(u.get("messageId"), u.get("content"))
         elif kind in SEGMENT_BREAKS:
@@ -386,7 +372,7 @@ class Session:
                 self._track_tool(u)
             elif kind in ("agent_thought_chunk", "agent_thought"):
                 c = u.get("content")
-                self._step("thought", "".join(_text(x) for x in c) if isinstance(c, list) else _text(c),
+                self._step("thought", _text_list(c) if isinstance(c, list) else _text(c),
                            replace=kind == "agent_thought")
         elif kind == "state_update" and self.version == 2:
             state = u.get("state")
@@ -531,7 +517,7 @@ class Session:
     def _replace(self, mid, content):
         if content is None or mid is None:
             return
-        text = "".join(_text(c) for c in content) if isinstance(content, list) else ""
+        text = _text_list(content) if isinstance(content, list) else ""
         for seg in self.segments:
             if seg[0] == mid:
                 seg[1] = text
@@ -776,6 +762,10 @@ def _text(content):
     return ""
 
 
+def _text_list(content):
+    return "".join(_text(item) for item in content)
+
+
 def _field(prop, required):
     """把 elicitation 的字段 schema 压成调用方好读的样子：标题、说明、类型、可选值。"""
     items = prop.get("items") or {}
@@ -929,32 +919,35 @@ def _litter_guard(cli, cwd):
     return clean
 
 
-def _git_output(cwd, *args, timeout=60):
-    """取 git 输出；失败或超时都当作没有。"""
+def _git_run(cwd, *args, timeout=60):
     try:
-        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=timeout)
+        return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return r.stdout.decode(errors="replace") if r.returncode == 0 else None
+
+
+def _git_output(cwd, *args, timeout=60):
+    r = _git_run(cwd, *args, timeout=timeout)
+    return r.stdout.decode(errors="replace") if r is not None and r.returncode == 0 else None
 
 
 def _git_head_start(cwd):
     """返回（是否追踪提交，HEAD）；空仓库是（True, None）。"""
-    cmd = ["git", "-C", str(cwd)]
-    try:
-        repo = subprocess.run([*cmd, "rev-parse", "--git-dir"], capture_output=True, timeout=60)
-        if repo.returncode:
-            return False, None
-        head = subprocess.run([*cmd, "rev-parse", "--verify", "-q", "HEAD"], capture_output=True, timeout=60)
-        if head.returncode:
-            ref = subprocess.run([*cmd, "symbolic-ref", "-q", "HEAD"], capture_output=True, timeout=60)
-            if ref.returncode:
-                return False, None
-            name = ref.stdout.decode(errors="replace").strip()
-            present = subprocess.run([*cmd, "show-ref", "--verify", "--quiet", name], capture_output=True, timeout=60)
-            return present.returncode == 1, None
-    except (OSError, subprocess.TimeoutExpired):
+    repo = _git_run(cwd, "rev-parse", "--git-dir")
+    if repo is None or repo.returncode:
         return False, None
+    head = _git_run(cwd, "rev-parse", "--verify", "-q", "HEAD")
+    if head is None:
+        return False, None
+    if head.returncode:
+        ref = _git_run(cwd, "symbolic-ref", "-q", "HEAD")
+        if ref is None or ref.returncode:
+            return False, None
+        name = ref.stdout.decode(errors="replace").strip()
+        present = _git_run(cwd, "show-ref", "--verify", "--quiet", name)
+        if present is None:
+            return False, None
+        return present.returncode == 1, None
     return True, head.stdout.decode(errors="replace").strip() or None
 
 
@@ -972,14 +965,14 @@ def _git_history(cwd, head_before, head_after, refs_before):
     deadline = time.monotonic() + 5
     rewritten, warnings = False, []
     if head_before and head_after:
-        try:
-            r = subprocess.run(["git", "-C", str(cwd), "merge-base", "--is-ancestor", head_before, head_after],
-                               capture_output=True, timeout=max(0.01, deadline - time.monotonic()))
+        r = _git_run(cwd, "merge-base", "--is-ancestor", head_before, head_after,
+                     timeout=max(0.01, deadline - time.monotonic()))
+        if r is None:
+            warnings.append("历史祖先检查失败或超时")
+        else:
             rewritten = r.returncode == 1
             if r.returncode not in (0, 1):
                 warnings.append("无法确认运行前 HEAD 的祖先关系")
-        except (OSError, subprocess.TimeoutExpired):
-            warnings.append("历史祖先检查失败或超时")
     refs_after = _git_original_refs(cwd, timeout=max(0.01, deadline - time.monotonic()))
     if refs_before is not None and refs_after is not None:
         rewritten |= bool(refs_after - refs_before)
@@ -993,14 +986,11 @@ def _git_history(cwd, head_before, head_after, refs_before):
 
 def _git_snapshot(cwd):
     """工作区里未提交文件的内容指纹；不是 git 仓库时返回 None。"""
-    def git(*args):
-        return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, timeout=60)
-    try:
-        top = git("rev-parse", "--show-toplevel")
-        status = git("status", "--porcelain=v1", "-z", "--untracked-files=all")
-    except (OSError, subprocess.TimeoutExpired):
+    top = _git_run(cwd, "rev-parse", "--show-toplevel")
+    if top is None or top.returncode:
         return None
-    if top.returncode or status.returncode:
+    status = _git_run(cwd, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+    if status is None or status.returncode:
         return None
     root = Path(top.stdout.decode().strip())
     snap, entries = {}, status.stdout.decode(errors="replace").split("\0")
@@ -1111,23 +1101,15 @@ def execute(a, prompt, git_diff=True):
         s.prompt(prompt, deadline)
     except KilledError:
         error, error_kind = f"收到 {signal.Signals(KILL_SIGNAL).name}，已取消", "killed"
-        if s.conn:
-            s.cancel()
     except TimeoutError:
         error, error_kind = f"超过 {a.timeout}s 被终止", "timeout"
-        if s.conn:
-            s.cancel()
     except IdleError:
         error = f"连续 {a.idle_timeout}s 没有任何输出、也没有工具在跑，判定卡住，已取消；会话还在，可以重跑或续接"
         error_kind = "idle"
-        if s.conn:
-            s.cancel()
     except StallError:
         activity = "只在读、搜索或抓取，没有写入或执行进展" if s.read_since_progress else "只在想或输出文字，没有动手进展"
         error = f"连续 {a.work_timeout}s {activity}，判定空转，已取消；会话还在，可以续接并要求先动手"
         error_kind = "stalled"
-        if s.conn:
-            s.cancel()
     except (RpcError, RuntimeError) as e:
         error = str(e)
         if previous_cwd and Path(previous_cwd).resolve() != cwd:
@@ -1135,9 +1117,13 @@ def execute(a, prompt, git_diff=True):
     except Exception as e:  # 协议对不上也要把日志位置交回去
         error = f"{type(e).__name__}: {e}"
     finally:
-        if s.conn:
-            s.close()
-        clean_litter()
+        try:
+            if error_kind in ("killed", "timeout", "idle", "stalled") and s.conn:
+                s.cancel()
+        finally:
+            if s.conn:
+                s.close()
+            clean_litter()
     after = _git_snapshot(cwd) if before is not None else None
     head_after = _git_head(cwd, timeout=5) if track_commits else None
     history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])
@@ -1264,7 +1250,7 @@ def _check_cli(cli, model, timeout, protocol):
         r = execute(ns(files=[str(notes), str(image)]), "附件里的文本给了一个暗号，图片是一块纯色。只回复：暗号 颜色（中文）")
         record("attach", r["ok"] and "4619" in (r["text"] or "") and "红" in (r["text"] or ""), r)
 
-    report["pass"] = all(c["pass"] is not False for c in report["checks"].values())
+    report["pass"] = all(c["pass"] for c in report["checks"].values())
     report["cost_usd"] = round(report["cost_usd"], 4)
     return report
 
@@ -1272,8 +1258,7 @@ def _check_cli(cli, model, timeout, protocol):
 def cmd_check(a):
     clis = a.cli or [c for c in AGENTS if _installed(c)]
     for c in clis:
-        if c not in AGENTS:
-            sys.exit(f"未知 agent：{c}，可选 {', '.join(AGENTS)}")
+        _validate_cli(c)
     with ThreadPoolExecutor(max_workers=len(clis)) as pool:
         reports = list(pool.map(lambda c: _check_cli(c, a.model, a.timeout, a.protocol), clis))
     print(json.dumps(reports, ensure_ascii=False, indent=2))
@@ -1394,8 +1379,7 @@ def _format_show(data):
 
 
 def cmd_options(a):
-    if a.cli not in AGENTS:
-        sys.exit(f"未知 agent：{a.cli}，可选 {', '.join(AGENTS)}")
+    _validate_cli(a.cli)
     cwd = Path(a.cwd or os.getcwd()).resolve()
     s = Session(_ns(cli=a.cli, cwd=a.cwd, protocol=a.protocol), cwd)
     clean_litter = _litter_guard(a.cli, cwd)
@@ -1425,7 +1409,7 @@ def cmd_install(a):
     if key not in AGY_ACP["archives"]:
         sys.exit(f"ACP 注册表没有 {key} 的 agy ACP server")
     url, sha, _ = AGY_ACP["archives"][key]
-    dest = STATE_DIR / "agents" / "agy" / AGY_ACP["version"]
+    dest = _agy_dir()
     dest.mkdir(parents=True, exist_ok=True)
     data = urllib.request.urlopen(url, timeout=300).read()
     if hashlib.sha256(data).hexdigest() != sha:
@@ -1442,7 +1426,7 @@ def cmd_install(a):
     print(json.dumps({"installed": str(dest / AGY_ACP["cmd"]), "version": AGY_ACP["version"]}, ensure_ascii=False))
 
 
-def cmd_outdated(a):
+def cmd_outdated(_a):
     """对照 ACP 注册表看钉住的适配器；本机自带 ACP 的 CLI（grok / opencode / mcode / hermes / dsh）由它们自己升级。"""
     req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent": f"agent-relay/{CLIENT_INFO['version']}"})
     reg = json.loads(urllib.request.urlopen(req, timeout=60).read())  # 默认的 Python-urllib UA 会被 CDN 拒
@@ -1477,8 +1461,7 @@ def _per_cli(values, cli):
 def cmd_run(a):
     clis = a.cli.split(",")
     for cli in clis:
-        if cli not in AGENTS:
-            sys.exit(f"未知 agent：{cli}，可选 {', '.join(AGENTS)}")
+        _validate_cli(cli)
         if not _installed(cli):
             hint = f"，先运行 relay.py install {AGENTS[cli]['install']}" if AGENTS[cli].get("install") else ""
             sys.exit(f"{cli} 的 ACP server 不可用{hint}")
