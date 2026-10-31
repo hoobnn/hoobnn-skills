@@ -63,6 +63,27 @@ class RelayTests(unittest.TestCase):
             self.assertEqual(result['uncommitted'], ['new'])
             self.assertTrue(any('1 个未提交' in w for w in result['warnings']))
 
+    def test_show_result_and_running_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp)
+            (run / 'status.json').write_text(json.dumps({'cli': 'grok', 'state': 'running', 'steps': list(range(9))}))
+            status = relay._show_data(run, 3)
+            self.assertEqual(status['state'], 'running')
+            self.assertEqual(status['steps'], [4, 5, 6, 7, 8])
+            (run / 'result.json').write_text(json.dumps({'ok': False, 'questions': [{'fields': {'x': {'options': ['a']}}}],
+                                                         'uncommitted': ['a'], 'text': 'abcdef', 'commands': ['omitted']}))
+            result = relay._show_data(run, 3)
+            self.assertEqual(result['text'], 'def')
+            self.assertEqual(result['uncommitted'], ['a'])
+            self.assertIn('questions', result)
+            self.assertNotIn('commands', result)
+
+    def test_long_work_timeout_warns(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)), \
+             patch.object(relay.Session, 'start', side_effect=RuntimeError('failed')):
+            result = relay.execute(relay._ns(cli='opencode', cwd=tmp, timeout=7200, work_timeout=7200), 'test')
+            self.assertTrue(any('空转检测实际上已关闭' in w for w in result['warnings']))
+
 
 if __name__ == '__main__':
     unittest.main()

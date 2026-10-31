@@ -1080,6 +1080,9 @@ def _resume_cwd(session_id):
 def execute(a, prompt, git_diff=True):
     """跑一轮，返回统一结果。git_diff=False 时只按工具调用统计改动（多家并发跑同一目录时互相分不清）。"""
     cwd = Path(a.cwd or os.getcwd()).resolve()
+    timeout_warning = a.asks == "allow" and a.work_timeout > 0 and (a.work_timeout >= a.timeout or a.work_timeout > 1800)
+    if timeout_warning:
+        print("提示：空转检测实际上已关闭（阈值过长）", file=sys.stderr)
     previous_cwd = _resume_cwd(a.resume) if a.resume else None
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
@@ -1131,6 +1134,8 @@ def execute(a, prompt, git_diff=True):
     after = _git_snapshot(cwd) if before is not None else None
     head_after = _git_head(cwd, timeout=5) if track_commits else None
     history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])
+    if timeout_warning:
+        warnings.append("空转检测实际上已关闭（阈值过长）")
     if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
@@ -1266,6 +1271,59 @@ def cmd_check(a):
         reports = list(pool.map(lambda c: _check_cli(c, a.model, a.timeout, a.protocol), clis))
     print(json.dumps(reports, ensure_ascii=False, indent=2))
     sys.exit(0 if all(r["pass"] for r in reports) else 1)
+
+
+def _show_data(path, tail):
+    path = Path(path).expanduser()
+    if path.is_dir():
+        result = path / "result.json"
+        path = result if result.exists() else path / "status.json"
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("需要单个运行结果")
+    keys = ("cli", "ok", "error_kind", "error", "session_id", "timing", "commits", "uncommitted",
+            "warnings", "questions", "auto_answers", "state", "steps", "tools", "cwd")
+    out = {k: data[k] for k in keys if k in data}
+    if "cli" not in out:
+        parts = path.parent.name.split("-")
+        if len(parts) >= 4:
+            out["cli"] = parts[-2]
+    if "text" in data:
+        out["text"] = (data["text"] or "")[-tail:] if tail else ""
+    if "steps" in out:
+        out["steps"] = out["steps"][-5:]
+    return out
+
+
+def cmd_show(a):
+    if a.tail < 0:
+        sys.exit("--tail 不能为负数")
+    if a.latest is not None:
+        runs = STATE_DIR / "runs"
+        dirs = sorted((p for p in runs.glob("*") if p.is_dir() and
+                       (not a.latest or f"-{a.latest}-" in p.name) and
+                       ((p / "result.json").exists() or (p / "status.json").exists())), reverse=True)
+        if not dirs:
+            sys.exit("没有找到运行记录")
+        path = dirs[0]
+    elif a.path:
+        path = a.path
+    else:
+        sys.exit("请提供结果文件、运行目录或 --latest")
+    try:
+        data = _show_data(path, a.tail)
+    except (OSError, ValueError) as e:
+        sys.exit(f"无法读取运行记录：{e}")
+    if a.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        for key, value in data.items():
+            if key == "text":
+                print(f"text（末尾）：\n{value}")
+            elif isinstance(value, (dict, list)):
+                print(f"{key}: {json.dumps(value, ensure_ascii=False)}")
+            else:
+                print(f"{key}: {value}")
 
 
 def cmd_options(a):
@@ -1413,6 +1471,11 @@ def main():
     r.add_argument("--asks", choices=("allow", "deny"), default="allow",
                    help="agent 按本机配置来问权限时：allow 代为放行（默认），deny 当成拒绝")
     r.add_argument("--full", action="store_true", help="输出里附上完整过程 steps：消息、思考、工具调用")
+    show = sub.add_parser("show", help="查看运行结果或当前进度")
+    show.add_argument("path", nargs="?", help="结果 JSON 或运行目录")
+    show.add_argument("--latest", nargs="?", const="", metavar="CLI", help="查看最近一次运行，可按 agent 筛选")
+    show.add_argument("--tail", type=int, default=2000, help="回答末尾字符数，默认 2000")
+    show.add_argument("--json", action="store_true", help="输出精简 JSON")
     o = sub.add_parser("options", help="列出 agent 的模型、推理强度、模式等配置项")
     o.add_argument("cli")
     o.add_argument("--cwd")
@@ -1430,7 +1493,7 @@ def main():
     if a.command in ("run", "check"):
         for sig in (signal.SIGTERM, signal.SIGINT):
             signal.signal(sig, _on_signal)
-    {"run": cmd_run, "check": cmd_check, "options": cmd_options, "install": cmd_install,
+    {"run": cmd_run, "show": cmd_show, "check": cmd_check, "options": cmd_options, "install": cmd_install,
      "outdated": cmd_outdated}[a.command](a)
 
 
