@@ -8,7 +8,7 @@
 - 两个版本的差异集中在 `Session` 里：v1 以 `session/prompt` 响应的 `stopReason` 判结束；v2 的响应只确认插入（返回 `messageId`），结束要等 `state_update` 的 `idle`。v1 续会话优先 `session/resume`，不支持再用 `session/load`（会回放历史，脚本只收发出 prompt 之后的输出）；v2 统一 `session/resume` 不带 `replayFrom`。模式在 v1 走 `session/set_mode`，v2 只有 config option。
 - 注册表的协议矩阵（2026-10-26）把 37 家都记成 v1，但实测 codex-acp 2.3.0、claude-agent-acp 0.97.0 已经能协商出 v2，矩阵不能当准。agy 回 `protocolVersion: 2` 却用 v1 结构和 v1 行为，脚本见到这种响应按 v1 走。
 - 客户端不声明 fs / terminal 能力，agent 发来这类请求一律回 method-not-found。
-- 客户端声明 form 模式的 elicitation（不声明 url 模式，那要人去浏览器里操作）。收到反问时，`--answer` 覆盖了全部必填字段就回 `accept`；否则回 `cancel`、发 `session/cancel` 结束本轮，把问题交回调用方。会话还在，续接即可。实测 claude-agent-acp 只在客户端声明 form 时才把 AskUserQuestion 转成 elicitation，字段名是 `question_0`、`question_0_custom`（自由填写）这种；codex-acp 也实现了 elicitation。
+- 客户端声明 form 模式的 elicitation（不声明 url 模式，那要人去浏览器里操作）。收到反问时，`--answer` 优先，`--auto-answer recommended` 只识别标题以 Recommended / 推荐开头或以（Recommended）/（推荐）结尾且不含否定词的选项，`first` 再回退到第一项；答案覆盖全部必填字段就回 `accept` 并记录自动代答；否则回 `cancel`、发 `session/cancel` 结束本轮，把问题交回调用方。会话还在，续接即可。实测 claude-agent-acp 只在客户端声明 form 时才把 AskUserQuestion 转成 elicitation，字段名是 `question_0`、`question_0_custom`（自由填写）这种；codex-acp 也实现了 elicitation。
 - 附件按 prompt 能力发：图片发 `image` 块；文本文件不超过 1 MB 且对端声明了 `embeddedContext` 时发 `resource` 块嵌入内容，否则发 `resource_link`（baseline，所有 agent 都得支持）。prompt 能力 v1 在 `agentCapabilities.promptCapabilities`（布尔），v2 在 `capabilities.session.prompt`（对象，`{}` 表示支持）。
 
 ## 各家实测（2026-10-27）
@@ -48,8 +48,11 @@
 - `error_kind` 为 `quota` 时这家短时间内不会恢复，把任务在原 worktree 交给别家接手，接手方先审视半成品；`rate_limit` 通常重跑即可。
 - 新建 git worktree 只带受版本控制的文件：被 exclude 的 `.node-version`、`node_modules` 都要自己补，否则对方可能起不来，或第一次提交就卡在钩子上。
 
+2026-10-31 的长任务记录：mcode（`20261031-173558-mcode-15eddc`）把总超时和空转阈值都设为 7200 秒，跑满 7199 秒，其中思考 7090 秒，第 1710 秒才第一次编辑，未提交。三十多次实现运行几乎都到末尾才首次提交，因此要在 prompt 要求分块提交。同机多个 agent 同时跑重测试会互相拖慢并引发偶发失败，错开重测试。
+
 ## 实测过的坑
 
+- opencode（`20261031-173558-opencode-ccd559`）提交前反问后返回 `cancelled`；反问优先归类 `asked`，用 `show` 检查问题和未提交改动。另一次（`20261031-183051-opencode-a0699e`）跨 cwd 续会话报错；会话绑定原目录，换目录开新会话。
 - agy 每次会话都会在会话目录建 `skills/system/run-workflow/SKILL.md`（物化内置 skill，没有开关），relay 跑完只删本次新建的部分。认证用 `oauth-personal` 复用本机 agy 的 Google 登录，首次会在 `~/.gemini/antigravity-acp/settings.json` 记下认证方式。
 - pi-acp 会先发一段启动横幅（版本和 skill 列表）作为无 `messageId` 的消息，脚本遇到思考、工具调用等更新就切段，只取最后一段当回答。
 - codex 偶尔在接受 prompt（返回 `messageId`、报 `running`）后长时间没有输出，空闲超时会提前结束这一轮；重跑即可。本机 codex 开着开发中的特性 `local_thread_store_compression`，会话恢复时它会发 notice 提醒可能不稳定。
@@ -69,3 +72,5 @@
 ## 升级钉住的适配器
 
 `relay.py outdated` 拉注册表（`cdn.agentclientprotocol.com/registry/v1/latest/registry.json`，默认的 Python-urllib UA 会被拒，脚本带了自己的 UA），对比 codex、pi、claude 的 npx 包版本和 agy 的二进制版本，有新版时给出替换值：npx 是新的 `cmd`，agy 是新的 `AGY_ACP`（各平台归档、sha256、启动参数，linux 要带 `--uid=`）。改完跑 `check`，agy 还要重新 `install agy`。grok、opencode、mcode、hermes、dsh 用的是本机 CLI 自带的 ACP，跟着它们自己的更新走，注册表里的版本也不准。
+
+离线回归测试：`python3 -m unittest discover -s plugins/agent-relay/skills/agent-relay/scripts -p 'test_relay.py'`（在仓库根运行）。

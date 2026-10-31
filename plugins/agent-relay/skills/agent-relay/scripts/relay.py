@@ -4,19 +4,21 @@
 relay 是一个 stdio ACP 客户端：起 agent 子进程，按 ACP v2 草案发起版本协商（请求 2，对端只会 v1 时回落到 v1），
 新建或续接会话、按 config option 切模型 / 推理强度、发 prompt（可带文件和图片），再把结果统一成一个 JSON。
 权限沿用各家本机自己的配置，relay 不改模式；agent 按配置来问时代为放行（relay 是非交互的，没人能当场确认）。
-agent 用 elicitation 反问时，--answer 预先给了答案就代答，否则结束本轮、把问题放进 questions 交回调用方：
+agent 用 elicitation 反问时，--answer 或 --auto-answer 能覆盖必填字段就代答，否则把 questions 交回调用方：
 
     relay.py run <cli[,cli...]> [--model [CLI=]M] [--effort [CLI=]E] [--resume ID] [--file F ...]
-                       [--answer KEY=VALUE ...] [--asks allow|deny] [--full] [--cwd DIR]
+                       [--answer KEY=VALUE ...] [--auto-answer recommended|first] [--asks allow|deny] [--full] [--cwd DIR]
                        [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] [--protocol 1|2] (PROMPT | - | --prompt-file F)
+    relay.py show [OUT_JSON_OR_RUN_DIR] [--latest [CLI]] [--tail N] [--json]
     relay.py options <cli>          # 列出该 agent 的模型、推理强度、模式等 config option
     relay.py check [cli ...]        # 冒烟测试：回复、续会话、写文件、附件
     relay.py install agy            # 下载 ACP 注册表里的 agy ACP server
     relay.py outdated               # 对照 ACP 注册表，列出钉住的适配器有没有新版本
 
-run 只往 stdout 打印一个 JSON 对象（多家时是数组，每项多一个 cli）：
-    {ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
-     files_changed, timing, commands, warnings[, commits, history_rewritten][, permissions][, questions][, steps]}
+run 只往 stdout 打印一个 JSON 对象（多家时是数组）：
+    {cli, cwd, ok, text, session_id, cost_usd, error, error_kind, log, protocol_version, stop_reason,
+     files_changed, timing, commands, warnings[, commits, uncommitted, history_rewritten]
+     [, permissions][, questions][, auto_answers][, steps]}
 JSON-RPC 往来写到 log 目录的 acp.jsonl（大块 base64 / data 只记大小和摘要）；status.json 是给界面看的进度快照（见 Session.write_status）。
 只依赖 Python 3 标准库。
 """
@@ -286,6 +288,7 @@ class Session:
         self.saw_active = False
         self.answers = dict(a.answers)
         self.questions = []
+        self.auto_answers = []
         self.permissions = []
         self.tools = {}  # toolCallId -> 合并后的工具调用
         self.steps = []  # --full：按顺序的消息、思考、工具调用
@@ -333,8 +336,20 @@ class Session:
         props = schema.get("properties") or {}
         required = schema.get("required") or []
         content = {k: _coerce(v, props[k]) for k, v in self.answers.items() if k in props}
+        automatic = {}
+        if self.a.auto_answer:
+            for k, prop in props.items():
+                if k not in content:
+                    value = _auto_choice(prop, self.a.auto_answer)
+                    if value is not None:
+                        automatic[k] = value
+            content.update(automatic)
         if content and all(k in content for k in required):
-            for k in content:
+            if automatic:
+                self.auto_answers.append({"message": p.get("message"), "content": automatic})
+                if self.conn:
+                    self.conn._record("auto_answer", self.auto_answers[-1])
+            for k in content.keys() & self.answers.keys():
                 del self.answers[k]  # 用过的答案不再答下一个问题
             return {"action": "accept", "content": content}
         self.questions.append({"message": p.get("message"),
@@ -770,6 +785,25 @@ def _field(prop, required):
     return {k: v for k, v in out.items() if v not in (None, [])}
 
 
+def _auto_choice(prop, mode):
+    items = prop.get("items") or {}
+    choices = prop.get("oneOf") or prop.get("anyOf") or items.get("oneOf") or items.get("anyOf")
+    if choices:
+        pairs = [(o.get("const"), o.get("title", "")) for o in choices if "const" in o]
+    else:
+        values = prop.get("enum") or items.get("enum") or []
+        titles = prop.get("enumNames") or items.get("enumNames") or []
+        pairs = [(v, titles[i] if i < len(titles) else "") for i, v in enumerate(values)]
+    def is_recommended(title):
+        title = str(title or "").strip()
+        if re.search(r"不|别|勿|\b(?:not|no)\b", title, re.I):
+            return False
+        return bool(re.search(r"^(?:recommended\b|推荐)|[（(](?:recommended|推荐)[）)]$", title, re.I))
+    recommended = [v for v, title in pairs if is_recommended(title)]
+    value = recommended[0] if recommended else (pairs[0][0] if mode == "first" and pairs else None)
+    return [value] if value is not None and prop.get("type") == "array" else value
+
+
 def _coerce(value, prop):
     kind = prop.get("type")
     if kind == "integer":
@@ -980,7 +1014,7 @@ def _git_snapshot(cwd):
             i += 1  # 改名后面跟着原路径
         f = root / e[3:]
         try:
-            snap[str(f)] = hashlib.sha1(f.read_bytes()).hexdigest() if f.is_file() else e[:2]
+            snap[str(f)] = e[:2] + (hashlib.sha1(f.read_bytes()).hexdigest() if f.is_file() else "")
         except OSError:
             snap[str(f)] = e[:2]
     return snap
@@ -1028,6 +1062,7 @@ def _error_kind(error):
     if not error:
         return None
     patterns = (
+        ("resume_cwd", r"does not belong to cwd"),
         ("quota", r"usage limit|quota|insufficient[_ ]?(balance|credit|funds)|credit balance|额度|余额不足|限额"),
         ("rate_limit", r"rate[ _-]?limit|too many requests|\b429\b"),
         ("auth", r"authenticat|unauthori[sz]ed|invalid api key|api key.{0,40}invalid|\b401\b"),
@@ -1035,9 +1070,27 @@ def _error_kind(error):
     return next((kind for kind, pattern in patterns if re.search(pattern, error, re.IGNORECASE)), "error")
 
 
+def _resume_cwd(session_id, cli):
+    runs = STATE_DIR / "runs"
+    if not runs.is_dir():
+        return None
+    for path in sorted(runs.glob("*/result.json"), key=lambda p: p.parent.name, reverse=True):
+        try:
+            result = json.loads(path.read_text())
+            if result.get("session_id") == session_id and result.get("cli") in (None, cli) and result.get("cwd"):
+                return result["cwd"]
+        except (OSError, ValueError, TypeError):
+            continue
+    return None
+
+
 def execute(a, prompt, git_diff=True):
     """跑一轮，返回统一结果。git_diff=False 时只按工具调用统计改动（多家并发跑同一目录时互相分不清）。"""
     cwd = Path(a.cwd or os.getcwd()).resolve()
+    timeout_warning = a.asks == "allow" and a.work_timeout > 0 and (a.work_timeout >= a.timeout or a.work_timeout > 1800)
+    if timeout_warning:
+        print("提示：空转检测阈值过长，接近失效", file=sys.stderr)
+    previous_cwd = _resume_cwd(a.resume, a.cli) if a.resume else None
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
@@ -1050,6 +1103,8 @@ def execute(a, prompt, git_diff=True):
     s.write_status("starting", force=True)
     error = error_kind = None
     try:
+        if previous_cwd and Path(previous_cwd).resolve() != cwd:
+            raise RuntimeError(f"会话原 cwd 为 {previous_cwd}，本次为 {cwd}；换目录请开新会话，把上下文写进 prompt")
         s.start(run_dir)
         s.open()
         s.configure()
@@ -1075,6 +1130,8 @@ def execute(a, prompt, git_diff=True):
             s.cancel()
     except (RpcError, RuntimeError) as e:
         error = str(e)
+        if previous_cwd and Path(previous_cwd).resolve() != cwd:
+            error_kind = "resume_cwd"
     except Exception as e:  # 协议对不上也要把日志位置交回去
         error = f"{type(e).__name__}: {e}"
     finally:
@@ -1084,6 +1141,8 @@ def execute(a, prompt, git_diff=True):
     after = _git_snapshot(cwd) if before is not None else None
     head_after = _git_head(cwd, timeout=5) if track_commits else None
     history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])
+    if timeout_warning:
+        warnings.append("空转检测阈值过长，接近失效")
     if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
@@ -1094,7 +1153,7 @@ def execute(a, prompt, git_diff=True):
         error = s.turn_error
     if not error and s.stop_reason not in (None, "end_turn", "max_tokens", "max_turn_requests"):
         error = f"stopReason={s.stop_reason}"
-    if s.questions and not error:
+    if s.questions and error_kind not in ("timeout", "idle", "stalled", "killed"):
         error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
         error_kind = "asked"
     if error and s.conn and s.conn.proc.returncode not in (0, None, -15, -9):
@@ -1104,11 +1163,15 @@ def execute(a, prompt, git_diff=True):
     text = s.text()
     final_error = error or (None if text else "agent 没有返回文本")
     error_kind = error_kind or _error_kind(final_error)
+    if error_kind == "resume_cwd" and "换目录" not in final_error:
+        final_error += "；换目录请开新会话，把上下文写进 prompt"
     commits, committed_paths = git_info or (None, set())
     result = {
         "ok": not error and bool(text),
         "text": text,
         "session_id": s.sid,
+        "cli": a.cli,
+        "cwd": str(cwd),
         "cost_usd": s.cost,
         "error": final_error,
         "error_kind": error_kind,
@@ -1120,6 +1183,13 @@ def execute(a, prompt, git_diff=True):
         "commands": s.commands(),
         "warnings": warnings,
     }
+    if after is not None:
+        changed = {f for f in after if before.get(f) != after[f]} | (committed_paths & after.keys())
+        result["uncommitted"] = _files_changed(None, None, changed, cwd)
+        if not result["ok"] and changed:
+            warnings.append(f"有 {len(changed)} 个未提交改动，续接或换人接手前先审视（可 git diff 查看）")
+    if s.auto_answers:
+        result["auto_answers"] = s.auto_answers
     if commits is not None:
         result["commits"] = commits
         result["history_rewritten"] = history_rewritten
@@ -1141,7 +1211,7 @@ def execute(a, prompt, git_diff=True):
 
 def _ns(**kw):
     base = dict(cli=None, model=None, effort=None, resume=None, cwd=None, timeout=300,
-                protocol=LATEST_PROTOCOL, files=[], answers={}, asks="allow", full=False, idle_timeout=300, work_timeout=0)
+                protocol=LATEST_PROTOCOL, files=[], answers={}, auto_answer=None, asks="allow", full=False, idle_timeout=300, work_timeout=0)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -1208,6 +1278,119 @@ def cmd_check(a):
         reports = list(pool.map(lambda c: _check_cli(c, a.model, a.timeout, a.protocol), clis))
     print(json.dumps(reports, ensure_ascii=False, indent=2))
     sys.exit(0 if all(r["pass"] for r in reports) else 1)
+
+
+def _show_data(path, tail):
+    path = Path(path).expanduser()
+    if path.is_dir():
+        result = path / "result.json"
+        path = result if result.exists() else path / "status.json"
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("需要单个运行结果")
+    keys = ("cli", "ok", "error_kind", "error", "session_id", "timing", "commits", "uncommitted",
+            "warnings", "questions", "auto_answers", "state", "steps", "tools", "cwd")
+    out = {k: data[k] for k in keys if k in data}
+    if "cli" not in out:
+        parts = path.parent.name.split("-")
+        if len(parts) >= 4:
+            out["cli"] = parts[-2]
+    if "text" in data:
+        out["text"] = (data["text"] or "")[-tail:] if tail else ""
+    if "steps" in out:
+        out["steps"] = out["steps"][-5:]
+    return out
+
+
+def cmd_show(a):
+    if a.tail < 0:
+        sys.exit("--tail 不能为负数")
+    if a.latest is not None and a.path:
+        sys.exit("结果路径与 --latest 不能同时使用")
+    if a.latest is not None:
+        runs = STATE_DIR / "runs"
+        dirs = sorted((p for p in runs.glob("*") if p.is_dir() and
+                       (not a.latest or f"-{a.latest}-" in p.name) and
+                       ((p / "result.json").exists() or (p / "status.json").exists())), reverse=True)
+        if not dirs:
+            sys.exit("没有找到运行记录")
+        path = dirs[0]
+    elif a.path:
+        path = a.path
+    else:
+        sys.exit("请提供结果文件、运行目录或 --latest")
+    try:
+        data = _show_data(path, a.tail)
+    except (OSError, ValueError) as e:
+        sys.exit(f"无法读取运行记录：{e}")
+    if a.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        print(_format_show(data))
+
+
+def _format_show(data):
+    lines = []
+    def display(value):
+        if value is None:
+            return "—"
+        if isinstance(value, (dict, list)):
+            return ", ".join(f"{k}={display(v)}" for k, v in value.items()) if isinstance(value, dict) else " / ".join(map(display, value))
+        return str(value)
+
+    for key in ("cli", "ok", "error_kind", "error", "session_id", "cwd", "state"):
+        if key in data:
+            lines.append(f"{key}: {display(data[key])}")
+    if "timing" in data:
+        timing = data["timing"] or {}
+        def seconds(key):
+            value = timing.get(key)
+            return f"{value}s" if value is not None else "—"
+        lines.append(f"耗时: 总 {seconds('total_s')} · 首次编辑 {seconds('first_edit_s')} · 首次提交 {seconds('first_commit_s')}")
+    if "tools" in data:
+        tools = data["tools"] or {}
+        lines.append(f"工具: 完成 {display(tools.get('done'))} / {display(tools.get('total'))}")
+    for key, label in (("commits", "提交"), ("uncommitted", "未提交"), ("warnings", "提醒")):
+        if key not in data:
+            continue
+        lines.append(f"{label}:")
+        for item in data[key] or []:
+            value = f"{item.get('sha', '—')} {item.get('subject', '')}" if key == "commits" else display(item)
+            lines.append(f"  - {value}")
+        if not data[key]:
+            lines.append("  —")
+    if data.get("questions"):
+        lines.append("问题:")
+        for question in data["questions"]:
+            lines.append(f"  {question.get('message') or '问题'}")
+            for name, field in (question.get("fields") or {}).items():
+                parts = [name]
+                if field.get("title"):
+                    parts.append(field["title"])
+                parts.append("必填" if field.get("required") else "选填")
+                if field.get("options"):
+                    parts.append("可选：" + " / ".join(map(display, field["options"])))
+                lines.append("    " + " · ".join(parts))
+                if field.get("description"):
+                    lines.append(f"      {field['description']}")
+    if data.get("auto_answers"):
+        lines.append("自动代答:")
+        for answer in data["auto_answers"]:
+            if answer.get("message"):
+                lines.append(f"  {answer['message']}")
+            for key, value in (answer.get("content") or {}).items():
+                lines.append(f"    {key}: {display(value)}")
+    if data.get("steps"):
+        lines.append("最近步骤:")
+        for step in data["steps"]:
+            if isinstance(step, dict):
+                lines.append(f"  - {step.get('type', 'step')}: {display(step.get('title') or step.get('text'))}"
+                             + (f" · {step['status']}" if step.get('status') else ""))
+            else:
+                lines.append(f"  - {display(step)}")
+    if "text" in data:
+        lines.append(f"text（末尾）：\n{data['text']}")
+    return "\n".join(lines)
 
 
 def cmd_options(a):
@@ -1345,6 +1528,7 @@ def main():
                    help="附件，可重复：图片内联，文本文件按对端能力嵌入或发链接")
     r.add_argument("--answer", action="append", default=[],
                    help="代答 agent 的反问，写成 字段=取值，可重复；字段名见上一轮输出的 questions")
+    r.add_argument("--auto-answer", choices=("recommended", "first"), help="自动选择推荐选项；first 在没有推荐时选第一项")
     r.add_argument("--cwd", help="工作目录，默认当前目录")
     r.add_argument("--timeout", type=int, default=1200, help="秒，默认 1200")
     r.add_argument("--idle-timeout", type=int, default=300,
@@ -1354,6 +1538,11 @@ def main():
     r.add_argument("--asks", choices=("allow", "deny"), default="allow",
                    help="agent 按本机配置来问权限时：allow 代为放行（默认），deny 当成拒绝")
     r.add_argument("--full", action="store_true", help="输出里附上完整过程 steps：消息、思考、工具调用")
+    show = sub.add_parser("show", help="查看运行结果或当前进度")
+    show.add_argument("path", nargs="?", help="结果 JSON 或运行目录")
+    show.add_argument("--latest", nargs="?", const="", metavar="CLI", help="查看最近一次运行，可按 agent 筛选")
+    show.add_argument("--tail", type=int, default=2000, help="回答末尾字符数，默认 2000")
+    show.add_argument("--json", action="store_true", help="输出精简 JSON")
     o = sub.add_parser("options", help="列出 agent 的模型、推理强度、模式等配置项")
     o.add_argument("cli")
     o.add_argument("--cwd")
@@ -1371,7 +1560,7 @@ def main():
     if a.command in ("run", "check"):
         for sig in (signal.SIGTERM, signal.SIGINT):
             signal.signal(sig, _on_signal)
-    {"run": cmd_run, "check": cmd_check, "options": cmd_options, "install": cmd_install,
+    {"run": cmd_run, "show": cmd_show, "check": cmd_check, "options": cmd_options, "install": cmd_install,
      "outdated": cmd_outdated}[a.command](a)
 
 
