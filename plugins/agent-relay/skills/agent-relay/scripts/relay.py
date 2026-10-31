@@ -372,7 +372,7 @@ class Session:
                 self._track_tool(u)
             elif kind in ("agent_thought_chunk", "agent_thought"):
                 c = u.get("content")
-                self._step("thought", "".join(_text(x) for x in c) if isinstance(c, list) else _text(c),
+                self._step("thought", _text_list(c) if isinstance(c, list) else _text(c),
                            replace=kind == "agent_thought")
         elif kind == "state_update" and self.version == 2:
             state = u.get("state")
@@ -517,7 +517,7 @@ class Session:
     def _replace(self, mid, content):
         if content is None or mid is None:
             return
-        text = "".join(_text(c) for c in content) if isinstance(content, list) else ""
+        text = _text_list(content) if isinstance(content, list) else ""
         for seg in self.segments:
             if seg[0] == mid:
                 seg[1] = text
@@ -760,6 +760,10 @@ def _text(content):
     if isinstance(content, dict) and content.get("type") == "text":
         return content.get("text") or ""
     return ""
+
+
+def _text_list(content):
+    return "".join(_text(item) for item in content)
 
 
 def _field(prop, required):

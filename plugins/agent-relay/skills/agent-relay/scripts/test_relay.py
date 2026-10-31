@@ -142,10 +142,24 @@ class RelayTests(unittest.TestCase):
         s.prompting = True
         for kind, content in (('agent_message_chunk', {'type': 'text', 'text': '草稿'}),
                               ('agent_message', [{'type': 'text', 'text': '最终'},
-                                                 {'type': 'image', 'data': 'ignored'},
+                                                 [{'type': 'text', 'text': '不应展开'}],
                                                  {'type': 'text', 'text': '回答'}])):
             s.on_notify('session/update', {'update': {'sessionUpdate': kind, 'messageId': 'm', 'content': content}})
         self.assertEqual(s.text(), '最终回答')
+        s.on_notify('session/update', {'update': {'sessionUpdate': 'agent_message', 'messageId': 'm',
+                                                 'content': {'type': 'text', 'text': '非列表'}}})
+        self.assertIsNone(s.text())
+
+    def test_thought_content_list_and_non_list_forms(self):
+        s = relay.Session(relay._ns(cli='opencode'), Path('/tmp'))
+        s.prompting = True
+        cases = [([{'type': 'text', 'text': '分析'},
+                   [{'type': 'text', 'text': '不应展开'}],
+                   {'type': 'text', 'text': '完成'}], '分析完成'),
+                 ({'type': 'text', 'text': '单块思考'}, '单块思考')]
+        for content, expected in cases:
+            s.on_notify('session/update', {'update': {'sessionUpdate': 'agent_thought', 'content': content}})
+            self.assertEqual(s.steps[-1], {'type': 'thought', 'text': expected})
 
     def test_show_result_and_running_status(self):
         with tempfile.TemporaryDirectory() as tmp:
