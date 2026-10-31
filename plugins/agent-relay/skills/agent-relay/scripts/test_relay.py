@@ -81,6 +81,41 @@ class RelayTests(unittest.TestCase):
             self.assertIn('/elsewhere', result['error'])
             self.assertEqual(relay._error_kind('session does not belong to cwd'), 'resume_cwd')
 
+    def test_resume_cwd_matches_cli_and_legacy_record(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)):
+            for name, cli, cwd in (('20261031-100000-opencode-aaaaaa', None, '/legacy'),
+                                   ('20261031-110000-opencode-bbbbbb', 'opencode', '/correct'),
+                                   ('20261031-120000-grok-cccccc', 'grok', '/wrong')):
+                run = Path(tmp, 'runs', name)
+                run.mkdir(parents=True)
+                (run / 'result.json').write_text(json.dumps({'session_id': 'same', 'cli': cli, 'cwd': cwd}))
+            self.assertEqual(relay._resume_cwd('same', 'opencode'), '/correct')
+            self.assertEqual(relay._resume_cwd('same', 'codex'), '/legacy')
+
+    def test_uncommitted_excludes_committed_and_includes_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as state:
+            def git(*args):
+                subprocess.run(['git', '-C', tmp, *args], check=True, capture_output=True)
+            git('init', '-q')
+            git('config', 'commit.gpgsign', 'false')
+            git('config', 'core.hooksPath', '/dev/null')
+            git('config', 'user.name', 'Test')
+            git('config', 'user.email', 'test@example.com')
+            Path(tmp, 'deleted').write_text('before')
+            git('add', 'deleted')
+            git('commit', '-qm', 'initial')
+            def work(*args):
+                Path(tmp, 'deleted').unlink()
+                Path(tmp, 'committed').write_text('done')
+                git('add', 'committed')
+                git('commit', '-qm', 'work')
+                raise RuntimeError('failed')
+            with patch.object(relay, 'STATE_DIR', Path(state)), patch.object(relay.Session, 'start', side_effect=work):
+                result = relay.execute(relay._ns(cli='opencode', cwd=tmp), 'test')
+            self.assertEqual(result['uncommitted'], ['deleted'])
+            self.assertIn('committed', result['files_changed'])
+            self.assertEqual(result['commits'][0]['subject'], 'work')
+
     def test_uncommitted_only_changes_from_this_run(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as state:
             subprocess.run(['git', 'init', '-q', tmp], check=True)
@@ -138,7 +173,9 @@ class RelayTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)), \
              patch.object(relay.Session, 'start', side_effect=RuntimeError('failed')):
             result = relay.execute(relay._ns(cli='opencode', cwd=tmp, timeout=7200, work_timeout=7200), 'test')
-            self.assertTrue(any('空转检测实际上已关闭' in w for w in result['warnings']))
+            self.assertTrue(any('空转检测阈值过长，接近失效' in w for w in result['warnings']))
+            result = relay.execute(relay._ns(cli='opencode', cwd=tmp, timeout=7200, work_timeout=2000), 'test')
+            self.assertTrue(any('空转检测阈值过长，接近失效' in w for w in result['warnings']))
 
 
 if __name__ == '__main__':

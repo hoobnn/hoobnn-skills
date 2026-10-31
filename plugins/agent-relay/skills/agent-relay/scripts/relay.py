@@ -1068,14 +1068,14 @@ def _error_kind(error):
     return next((kind for kind, pattern in patterns if re.search(pattern, error, re.IGNORECASE)), "error")
 
 
-def _resume_cwd(session_id):
+def _resume_cwd(session_id, cli):
     runs = STATE_DIR / "runs"
     if not runs.is_dir():
         return None
     for path in sorted(runs.glob("*/result.json"), key=lambda p: p.parent.name, reverse=True):
         try:
             result = json.loads(path.read_text())
-            if result.get("session_id") == session_id and result.get("cwd"):
+            if result.get("session_id") == session_id and result.get("cli") in (None, cli) and result.get("cwd"):
                 return result["cwd"]
         except (OSError, ValueError, TypeError):
             continue
@@ -1087,8 +1087,8 @@ def execute(a, prompt, git_diff=True):
     cwd = Path(a.cwd or os.getcwd()).resolve()
     timeout_warning = a.asks == "allow" and a.work_timeout > 0 and (a.work_timeout >= a.timeout or a.work_timeout > 1800)
     if timeout_warning:
-        print("提示：空转检测实际上已关闭（阈值过长）", file=sys.stderr)
-    previous_cwd = _resume_cwd(a.resume) if a.resume else None
+        print("提示：空转检测阈值过长，接近失效", file=sys.stderr)
+    previous_cwd = _resume_cwd(a.resume, a.cli) if a.resume else None
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
     before = _git_snapshot(cwd) if git_diff else None
@@ -1140,7 +1140,7 @@ def execute(a, prompt, git_diff=True):
     head_after = _git_head(cwd, timeout=5) if track_commits else None
     history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])
     if timeout_warning:
-        warnings.append("空转检测实际上已关闭（阈值过长）")
+        warnings.append("空转检测阈值过长，接近失效")
     if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
