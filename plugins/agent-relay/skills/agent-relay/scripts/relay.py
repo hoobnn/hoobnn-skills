@@ -363,9 +363,7 @@ class Session:
             if kind in ("tool_call", "tool_call_update"):
                 self._track_tool(u)
             elif kind in ("agent_thought_chunk", "agent_thought"):
-                c = u.get("content")
-                self._step("thought", "".join(_text(x) for x in c) if isinstance(c, list) else _text(c),
-                           replace=kind == "agent_thought")
+                self._step("thought", _text(u.get("content")), replace=kind == "agent_thought")
         elif kind == "state_update" and self.version == 2:
             state = u.get("state")
             if state in ("running", "requires_action"):
@@ -509,7 +507,7 @@ class Session:
     def _replace(self, mid, content):
         if content is None or mid is None:
             return
-        text = "".join(_text(c) for c in content) if isinstance(content, list) else ""
+        text = _text(content)
         for seg in self.segments:
             if seg[0] == mid:
                 seg[1] = text
@@ -749,6 +747,8 @@ class Session:
 
 
 def _text(content):
+    if isinstance(content, list):
+        return "".join(_text(item) for item in content)
     if isinstance(content, dict) and content.get("type") == "text":
         return content.get("text") or ""
     return ""

@@ -137,6 +137,16 @@ class RelayTests(unittest.TestCase):
             self.assertEqual(result['uncommitted'], ['new'])
             self.assertTrue(any('1 个未提交' in w for w in result['warnings']))
 
+    def test_full_agent_message_replaces_chunked_text(self):
+        s = relay.Session(relay._ns(cli='opencode'), Path('/tmp'))
+        s.prompting = True
+        for kind, content in (('agent_message_chunk', {'type': 'text', 'text': '草稿'}),
+                              ('agent_message', [{'type': 'text', 'text': '最终'},
+                                                 {'type': 'image', 'data': 'ignored'},
+                                                 {'type': 'text', 'text': '回答'}])):
+            s.on_notify('session/update', {'update': {'sessionUpdate': kind, 'messageId': 'm', 'content': content}})
+        self.assertEqual(s.text(), '最终回答')
+
     def test_show_result_and_running_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp)
