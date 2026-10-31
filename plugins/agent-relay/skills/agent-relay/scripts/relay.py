@@ -1090,23 +1090,15 @@ def execute(a, prompt, git_diff=True):
         s.prompt(prompt, deadline)
     except KilledError:
         error, error_kind = f"收到 {signal.Signals(KILL_SIGNAL).name}，已取消", "killed"
-        if s.conn:
-            s.cancel()
     except TimeoutError:
         error, error_kind = f"超过 {a.timeout}s 被终止", "timeout"
-        if s.conn:
-            s.cancel()
     except IdleError:
         error = f"连续 {a.idle_timeout}s 没有任何输出、也没有工具在跑，判定卡住，已取消；会话还在，可以重跑或续接"
         error_kind = "idle"
-        if s.conn:
-            s.cancel()
     except StallError:
         activity = "只在读、搜索或抓取，没有写入或执行进展" if s.read_since_progress else "只在想或输出文字，没有动手进展"
         error = f"连续 {a.work_timeout}s {activity}，判定空转，已取消；会话还在，可以续接并要求先动手"
         error_kind = "stalled"
-        if s.conn:
-            s.cancel()
     except (RpcError, RuntimeError) as e:
         error = str(e)
         if previous_cwd and Path(previous_cwd).resolve() != cwd:
@@ -1114,9 +1106,13 @@ def execute(a, prompt, git_diff=True):
     except Exception as e:  # 协议对不上也要把日志位置交回去
         error = f"{type(e).__name__}: {e}"
     finally:
-        if s.conn:
-            s.close()
-        clean_litter()
+        try:
+            if error_kind in ("killed", "timeout", "idle", "stalled") and s.conn:
+                s.cancel()
+        finally:
+            if s.conn:
+                s.close()
+            clean_litter()
     after = _git_snapshot(cwd) if before is not None else None
     head_after = _git_head(cwd, timeout=5) if track_commits else None
     history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])

@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 import subprocess
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import relay
@@ -37,13 +38,16 @@ class RelayTests(unittest.TestCase):
                                 (relay.StallError, 'stalled'), (relay.KilledError, 'killed')):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp, \
                  patch.object(relay, 'STATE_DIR', Path(tmp)), patch.object(relay, 'KILL_SIGNAL', signal.SIGTERM), \
-                 patch.object(relay.Session, 'start'), patch.object(relay.Session, 'open'), \
-                 patch.object(relay.Session, 'configure'):
+                 patch.object(relay.Session, 'open'), patch.object(relay.Session, 'configure'), \
+                 patch.object(relay.Session, 'close'), patch.object(relay.Session, 'cancel') as cancel:
+                def start(session, run_dir):
+                    session.conn = SimpleNamespace(proc=SimpleNamespace(returncode=0))
                 def fail(session, prompt, deadline):
                     session.questions.append({'message': '是否提交？', 'fields': {}})
                     raise exception()
-                with patch.object(relay.Session, 'prompt', fail):
+                with patch.object(relay.Session, 'start', start), patch.object(relay.Session, 'prompt', fail):
                     result = relay.execute(relay._ns(cli='opencode', cwd=tmp), 'test')
+                cancel.assert_called_once_with()
                 self.assertEqual(result['error_kind'], kind)
                 self.assertTrue(result['questions'])
                 self.assertNotIn('--answer', result['error'])
