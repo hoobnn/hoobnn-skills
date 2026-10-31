@@ -1324,13 +1324,71 @@ def cmd_show(a):
     if a.json:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
-        for key, value in data.items():
-            if key == "text":
-                print(f"text（末尾）：\n{value}")
-            elif isinstance(value, (dict, list)):
-                print(f"{key}: {json.dumps(value, ensure_ascii=False)}")
+        print(_format_show(data))
+
+
+def _format_show(data):
+    lines = []
+    def display(value):
+        if value is None:
+            return "—"
+        if isinstance(value, (dict, list)):
+            return ", ".join(f"{k}={display(v)}" for k, v in value.items()) if isinstance(value, dict) else " / ".join(map(display, value))
+        return str(value)
+
+    for key in ("cli", "ok", "error_kind", "error", "session_id", "cwd", "state"):
+        if key in data:
+            lines.append(f"{key}: {display(data[key])}")
+    if "timing" in data:
+        timing = data["timing"] or {}
+        def seconds(key):
+            value = timing.get(key)
+            return f"{value}s" if value is not None else "—"
+        lines.append(f"耗时: 总 {seconds('total_s')} · 首次编辑 {seconds('first_edit_s')} · 首次提交 {seconds('first_commit_s')}")
+    if "tools" in data:
+        tools = data["tools"] or {}
+        lines.append(f"工具: 完成 {display(tools.get('done'))} / {display(tools.get('total'))}")
+    for key, label in (("commits", "提交"), ("uncommitted", "未提交"), ("warnings", "提醒")):
+        if key not in data:
+            continue
+        lines.append(f"{label}:")
+        for item in data[key] or []:
+            value = f"{item.get('sha', '—')} {item.get('subject', '')}" if key == "commits" else display(item)
+            lines.append(f"  - {value}")
+        if not data[key]:
+            lines.append("  —")
+    if data.get("questions"):
+        lines.append("问题:")
+        for question in data["questions"]:
+            lines.append(f"  {question.get('message') or '问题'}")
+            for name, field in (question.get("fields") or {}).items():
+                parts = [name]
+                if field.get("title"):
+                    parts.append(field["title"])
+                parts.append("必填" if field.get("required") else "选填")
+                if field.get("options"):
+                    parts.append("可选：" + " / ".join(map(display, field["options"])))
+                lines.append("    " + " · ".join(parts))
+                if field.get("description"):
+                    lines.append(f"      {field['description']}")
+    if data.get("auto_answers"):
+        lines.append("自动代答:")
+        for answer in data["auto_answers"]:
+            if answer.get("message"):
+                lines.append(f"  {answer['message']}")
+            for key, value in (answer.get("content") or {}).items():
+                lines.append(f"    {key}: {display(value)}")
+    if data.get("steps"):
+        lines.append("最近步骤:")
+        for step in data["steps"]:
+            if isinstance(step, dict):
+                lines.append(f"  - {step.get('type', 'step')}: {display(step.get('title') or step.get('text'))}"
+                             + (f" · {step['status']}" if step.get('status') else ""))
             else:
-                print(f"{key}: {value}")
+                lines.append(f"  - {display(step)}")
+    if "text" in data:
+        lines.append(f"text（末尾）：\n{data['text']}")
+    return "\n".join(lines)
 
 
 def cmd_options(a):

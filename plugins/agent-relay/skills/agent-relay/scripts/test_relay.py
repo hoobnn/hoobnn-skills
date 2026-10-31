@@ -1,6 +1,8 @@
 import tempfile
 import json
 import signal
+import io
+from contextlib import redirect_stdout
 import subprocess
 import unittest
 from pathlib import Path
@@ -105,6 +107,32 @@ class RelayTests(unittest.TestCase):
             self.assertEqual(result['uncommitted'], ['a'])
             self.assertIn('questions', result)
             self.assertNotIn('commands', result)
+
+    def test_show_human_format(self):
+        data = {'timing': {'total_s': 12, 'first_edit_s': None, 'first_commit_s': 9},
+                'commits': [{'sha': 'abc', 'subject': 'feat: x'}], 'uncommitted': ['a'],
+                'warnings': ['检查'], 'questions': [{'message': '确认？', 'fields': {
+                    'confirm': {'title': '提交', 'description': '现在提交吗', 'required': True, 'options': ['yes', 'no']}}}],
+                'auto_answers': [{'message': '问题', 'content': {'confirm': 'yes'}}], 'text': '完成'}
+        output = relay._format_show(data)
+        for text in ('总 12s · 首次编辑 — · 首次提交 9s', 'abc feat: x', 'confirm · 提交 · 必填 · 可选：yes / no',
+                     '现在提交吗', 'confirm: yes', '检查', 'text（末尾）：\n完成'):
+            self.assertIn(text, output)
+        self.assertNotIn('{', output)
+
+    def test_show_latest_filter_and_infer_cli(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)):
+            for name, state in (('20261031-100000-opencode-aaaaaa', 'old'),
+                                ('20261031-110000-grok-bbbbbb', 'other'),
+                                ('20261031-120000-opencode-cccccc', 'new')):
+                run = Path(tmp, 'runs', name)
+                run.mkdir(parents=True)
+                (run / 'result.json').write_text(json.dumps({'text': state}))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                relay.cmd_show(relay.argparse.Namespace(path=None, latest='opencode', tail=2000, json=True))
+            data = json.loads(output.getvalue())
+            self.assertEqual((data['cli'], data['text']), ('opencode', 'new'))
 
     def test_long_work_timeout_warns(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)), \
