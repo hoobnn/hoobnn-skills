@@ -1094,7 +1094,7 @@ def execute(a, prompt, git_diff=True):
         error = s.turn_error
     if not error and s.stop_reason not in (None, "end_turn", "max_tokens", "max_turn_requests"):
         error = f"stopReason={s.stop_reason}"
-    if s.questions and not error:
+    if s.questions and (not error or error == "stopReason=cancelled"):
         error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
         error_kind = "asked"
     if error and s.conn and s.conn.proc.returncode not in (0, None, -15, -9):
