@@ -70,8 +70,12 @@ def _platform_key():
     return f"{sys.platform}-{machine}"
 
 
+def _agy_dir():
+    return STATE_DIR / "agents" / "agy" / AGY_ACP["version"]
+
+
 def _agy_cmd():
-    path = STATE_DIR / "agents" / "agy" / AGY_ACP["version"] / AGY_ACP["cmd"]
+    path = _agy_dir() / AGY_ACP["cmd"]
     archive = AGY_ACP["archives"].get(_platform_key())
     return [str(path), *archive[2]] if path.exists() and archive else None
 
@@ -97,6 +101,11 @@ def agent_cmd(cli):
     return cmd() if callable(cmd) else list(cmd)
 
 
+def _validate_cli(cli):
+    if cli not in AGENTS:
+        sys.exit(f"未知 agent：{cli}，可选 {', '.join(AGENTS)}")
+
+
 # ---------------------------------------------------------------- JSON-RPC over stdio
 
 
@@ -119,7 +128,7 @@ class KilledError(Exception):
     pass
 
 
-def _on_signal(signum, frame):
+def _on_signal(signum, _frame):
     global KILL_SIGNAL
     if KILLED.is_set():
         os._exit(128 + signum)
@@ -149,7 +158,6 @@ class Connection:
                                      stderr=self.stderr, start_new_session=True)
         self.on_request, self.on_notify = on_request, on_notify
         self.pending, self.lock, self.next_id = {}, threading.Lock(), 0
-        self.closed = threading.Event()
         threading.Thread(target=self._read, daemon=True).start()
 
     def _record(self, direction, msg):
@@ -161,7 +169,7 @@ class Connection:
         try:
             self.proc.stdin.write((json.dumps(msg, ensure_ascii=False) + "\n").encode())
             self.proc.stdin.flush()
-        except (BrokenPipeError, ValueError, OSError):
+        except (ValueError, OSError):
             pass
 
     def _read(self):
@@ -177,7 +185,6 @@ class Connection:
             for m in msg if isinstance(msg, list) else [msg]:
                 self._record("<", m)
                 self._dispatch(m)
-        self.closed.set()
         with self.lock:
             for q in self.pending.values():
                 q.put({"error": {"code": -32099, "message": "agent 进程已退出"}})
@@ -354,8 +361,9 @@ class Session:
             self.output_since_progress = True
         self.write_status()
         if kind == "agent_message_chunk":
-            self._append(u.get("messageId"), _text(u.get("content")))
-            self._step("message", _text(u.get("content")))
+            text = _text(u.get("content"))
+            self._append(u.get("messageId"), text)
+            self._step("message", text)
         elif kind == "agent_message":
             self._replace(u.get("messageId"), u.get("content"))
         elif kind in SEGMENT_BREAKS:
@@ -363,7 +371,9 @@ class Session:
             if kind in ("tool_call", "tool_call_update"):
                 self._track_tool(u)
             elif kind in ("agent_thought_chunk", "agent_thought"):
-                self._step("thought", _text(u.get("content")), replace=kind == "agent_thought")
+                c = u.get("content")
+                self._step("thought", "".join(_text(x) for x in c) if isinstance(c, list) else _text(c),
+                           replace=kind == "agent_thought")
         elif kind == "state_update" and self.version == 2:
             state = u.get("state")
             if state in ("running", "requires_action"):
@@ -507,7 +517,7 @@ class Session:
     def _replace(self, mid, content):
         if content is None or mid is None:
             return
-        text = _text(content)
+        text = "".join(_text(c) for c in content) if isinstance(content, list) else ""
         for seg in self.segments:
             if seg[0] == mid:
                 seg[1] = text
@@ -747,8 +757,6 @@ class Session:
 
 
 def _text(content):
-    if isinstance(content, list):
-        return "".join(_text(item) for item in content)
     if isinstance(content, dict) and content.get("type") == "text":
         return content.get("text") or ""
     return ""
@@ -795,17 +803,14 @@ def _coerce(value, prop):
     return value
 
 
-def _option_pairs(opt):
-    pairs = []
-    for option in opt.get("options") or []:
-        for value in option["options"] if "options" in option else [option]:
-            if "value" in value:
-                pairs.append((value["value"], value.get("name") or ""))
-    return pairs
-
-
 def _flat_values(opt):
-    return [value for value, _ in _option_pairs(opt)]
+    vals = []
+    for o in opt.get("options") or []:
+        if "options" in o:  # 分组
+            vals += [x.get("value") for x in o["options"]]
+        elif "value" in o:
+            vals.append(o["value"])
+    return vals
 
 
 def _flat(value):
@@ -819,7 +824,9 @@ def _flat(value):
 
 def _match(wanted, opt):
     """按 value 精确、name 精确、value 后缀、唯一子串的顺序匹配用户写的模型 / 强度，返回 (取值, 候选)。"""
-    pairs = _option_pairs(opt)
+    pairs = []
+    for o in opt.get("options") or []:
+        pairs += [(x.get("value"), x.get("name") or "") for x in (o["options"] if "options" in o else [o])]
     flat = {v: _flat(v) for v, _ in pairs}
     w = wanted.lower()
     for test in (lambda v, n: wanted in (v, flat[v]), lambda v, n: n.lower() == w,
@@ -1239,7 +1246,7 @@ def _check_cli(cli, model, timeout, protocol):
         r = execute(ns(files=[str(notes), str(image)]), "附件里的文本给了一个暗号，图片是一块纯色。只回复：暗号 颜色（中文）")
         record("attach", r["ok"] and "4619" in (r["text"] or "") and "红" in (r["text"] or ""), r)
 
-    report["pass"] = all(c["pass"] is not False for c in report["checks"].values())
+    report["pass"] = all(c["pass"] for c in report["checks"].values())
     report["cost_usd"] = round(report["cost_usd"], 4)
     return report
 
@@ -1247,8 +1254,7 @@ def _check_cli(cli, model, timeout, protocol):
 def cmd_check(a):
     clis = a.cli or [c for c in AGENTS if _installed(c)]
     for c in clis:
-        if c not in AGENTS:
-            sys.exit(f"未知 agent：{c}，可选 {', '.join(AGENTS)}")
+        _validate_cli(c)
     with ThreadPoolExecutor(max_workers=len(clis)) as pool:
         reports = list(pool.map(lambda c: _check_cli(c, a.model, a.timeout, a.protocol), clis))
     print(json.dumps(reports, ensure_ascii=False, indent=2))
@@ -1369,8 +1375,7 @@ def _format_show(data):
 
 
 def cmd_options(a):
-    if a.cli not in AGENTS:
-        sys.exit(f"未知 agent：{a.cli}，可选 {', '.join(AGENTS)}")
+    _validate_cli(a.cli)
     cwd = Path(a.cwd or os.getcwd()).resolve()
     s = Session(_ns(cli=a.cli, cwd=a.cwd, protocol=a.protocol), cwd)
     clean_litter = _litter_guard(a.cli, cwd)
@@ -1400,7 +1405,7 @@ def cmd_install(a):
     if key not in AGY_ACP["archives"]:
         sys.exit(f"ACP 注册表没有 {key} 的 agy ACP server")
     url, sha, _ = AGY_ACP["archives"][key]
-    dest = STATE_DIR / "agents" / "agy" / AGY_ACP["version"]
+    dest = _agy_dir()
     dest.mkdir(parents=True, exist_ok=True)
     data = urllib.request.urlopen(url, timeout=300).read()
     if hashlib.sha256(data).hexdigest() != sha:
@@ -1417,7 +1422,7 @@ def cmd_install(a):
     print(json.dumps({"installed": str(dest / AGY_ACP["cmd"]), "version": AGY_ACP["version"]}, ensure_ascii=False))
 
 
-def cmd_outdated(a):
+def cmd_outdated(_a):
     """对照 ACP 注册表看钉住的适配器；本机自带 ACP 的 CLI（grok / opencode / mcode / hermes / dsh）由它们自己升级。"""
     req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent": f"agent-relay/{CLIENT_INFO['version']}"})
     reg = json.loads(urllib.request.urlopen(req, timeout=60).read())  # 默认的 Python-urllib UA 会被 CDN 拒
@@ -1452,8 +1457,7 @@ def _per_cli(values, cli):
 def cmd_run(a):
     clis = a.cli.split(",")
     for cli in clis:
-        if cli not in AGENTS:
-            sys.exit(f"未知 agent：{cli}，可选 {', '.join(AGENTS)}")
+        _validate_cli(cli)
         if not _installed(cli):
             hint = f"，先运行 relay.py install {AGENTS[cli]['install']}" if AGENTS[cli].get("install") else ""
             sys.exit(f"{cli} 的 ACP server 不可用{hint}")
