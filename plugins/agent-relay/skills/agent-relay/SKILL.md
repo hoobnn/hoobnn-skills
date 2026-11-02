@@ -8,30 +8,26 @@ description: 在当前 agent 里调用另一个或几个 AI 编程 agent（grok 
 `<SKILL_ROOT>` 指本文件所在目录。
 
 ```bash
-python3 "<SKILL_ROOT>/scripts/relay.py" run <cli[,cli...]> [--model [CLI=]M] [--effort [CLI=]E] \
-        [--resume SID] [--file F ...] [--answer KEY=VALUE ...] [--auto-answer recommended|first] \
-        [--asks allow|deny] [--cwd DIR] [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] \
-        [--full] (PROMPT | - | --prompt-file F)
+python3 "<SKILL_ROOT>/scripts/relay.py" run <cli[,cli...]> [-t reviewer|implementer] [--worktree] \
+        [--model [CLI=]M] [--effort [CLI=]E] [--resume SID] [--file F ...] [--answer KEY=VALUE ...] \
+        [--auto-answer recommended|first] [--asks allow|deny] [--cwd DIR] \
+        [--timeout SEC] [--idle-timeout SEC] [--work-timeout SEC] [--full] (PROMPT | - | --prompt-file F)
 python3 "<SKILL_ROOT>/scripts/relay.py" show [OUT_JSON_OR_RUN_DIR] [--latest [CLI]] [--tail N] [--json]
 python3 "<SKILL_ROOT>/scripts/relay.py" options <cli>
 ```
 
-- `<cli>`：`grok` `agy` `codex` `opencode` `pi` `mcode`（MiniMax Code）`hermes` `dsh`（DeepSeek Harness）`claude`；逗号分隔多家会并行执行同一 prompt，并输出数组。
-- `--model` / `--effort` 匹配取值或名称（大小写不敏感，模型可写末段）；`CLI=值` 只用于一家，否则用于所有家。匹配不到或有歧义时按报错候选修正，或先跑 `options`。
-- `--asks allow`（默认）代答本机配置要求确认的权限，`deny` 拒绝这些请求；本机配置本来拒绝的操作不会放行。
-- `--file` 可重复附加文件；图片需对端模型支持，文本可能内嵌，也可能只发文件链接让对方读取。
-- 结果先看 `ok`、`text`、`error_kind`、`warnings`；`session_id` 供 `--resume`，`log` 是运行目录，`show` 可看摘要或进度，`--full` 另附完整 `steps`。
-- 验收看 `files_changed`、`commands`；单家 git 任务还看 `commits`、`uncommitted`、`history_rewritten`，并核对 `cost_usd` 和 `auto_answers`（如有）。多家并行时改动仅靠工具上报，不能当作完整 diff。
-- `error_kind=asked` 时读 `questions`；上一轮 elicitation 已取消，`--answer` 只在新一轮 agent 再次发出对应字段的反问时生效。
-- 带 `--resume SID --answer 字段=取值` 续接时，要在 prompt 里要求对方重新提问（多选用逗号）；也可以直接把答案写进 prompt。能自行判断就代答，拿不准再问用户。
-- `--answer` 优先于自动代答；`--auto-answer recommended` 只认标题以 `Recommended` / `推荐` 开头，或以 `（Recommended）` / `（推荐）` 结尾且不含否定词的选项，只在取值里标记或其他写法不识别。`first` 无推荐项时选第一项；无法覆盖必填字段仍返回 `questions`。
-- `timeout` / `idle` / `stalled` 会取消本轮但保留会话；先审视产物再续接或重跑。`quota` 换家，`rate_limit` 可重试，`auth` 先登录，`resume_cwd` 换目录须开新会话；其他失败看 `error` 和日志。
-- 默认总 / 空闲 / 空转超时为 1200 / 300 / 900 秒；空转只把写入、执行或新提交当进展，空闲与空转超时均可设 0 关闭。评审等只读任务用 `--asks deny --work-timeout 0`，避免长思考被误杀。
+- `<cli>`：`grok` `agy` `codex` `opencode` `pi` `mcode`（MiniMax Code）`hermes` `dsh`（DeepSeek Harness）`claude`；逗号分隔多家时并行跑同一个 prompt，输出数组。
+- `-t reviewer` 只读评审，拒绝需要确认的权限；`-t implementer` 用于实现任务：限定范围、不反问、边测边提交、按固定格式回报，总超时 3600 秒。命令行显式参数优先于模板；续接时不用再带 `-t`。
+- `--worktree`：每家在 `<仓库>.worktrees/relay-<cli>-<id>/` 的新分支上跑，带上未提交改动和小的被忽略文件，被忽略的目录会在 prompt 里提醒对方自己装依赖。对方没改动就自动删掉 worktree 和分支（结果里 `worktree: null`），有改动就保留，审完自行删除。多家都要改代码时必须用它。
+- `--model` / `--effort` 不区分大小写匹配取值或名称，模型可只写末段；`CLI=值` 只给一家。匹配失败按报错候选修正，或先跑 `options`。
+- `--asks allow`（默认）代答本机配置要求确认的权限，`deny` 拒绝；本机配置本来就拒绝的操作不会放行。`--file` 附件里图片需要对端模型支持。
+- 结果先看 `ok`、`text`、`error_kind`、`hint`、`warnings`，退出码随 `error_kind` 区分。验收看 `files_changed`、`commands`、`commits`、`uncommitted`、`history_rewritten`，再核对 `cost_usd`、`auto_answers`。`session_id` 用于 `--resume`；`show` 查看摘要或进度；`--full` 附完整过程。
+- `error_kind=asked` 时读 `questions`；能自己判断就代答，拿不准再问用户。续接写 `--resume SID --answer 字段=取值`，并在 prompt 里要求对方重新提问（多选用逗号），或者直接把答案写进 prompt。`--auto-answer` 的识别规则见 REFERENCE.md。
+- 默认总超时 1200 秒、空闲超时 300 秒（设 0 关闭空闲超时），不按空转取消。`since_progress_s` 记录距上次写入、执行或提交过了多久，是否卡住由调用方判断；确实需要自动取消时再设 `--work-timeout`。超时后会话还在，先审视产物，再续接或重跑。
 
 ## 派长任务
 
-- 用宿主的后台机制运行，relay 在后台命令里保持前台，勿再加 `&` / `nohup`；实现任务的总超时设 45–60 分钟。
-- prompt 给足背景与权威文件，限定可改范围，要求每完成一块就提交、不要反问、边做边测；写明交付检查和回报格式，相关文件用 `--file` 附上。
-- 超时后先查 `commits`、`uncommitted` 和 worktree，再决定续接或换家；`history_rewritten=true` 时按 `warnings` 保存现场并恢复。
+- 用宿主的后台机制运行，relay 本身在前台跑，不要加 `&` / `nohup`；配合 `-t implementer`，prompt 写明背景、权威文件、可改范围和交付检查，相关文件用 `--file` 附上。
+- 超时后先查 `commits`、`uncommitted`，再决定续接还是换家；`history_rewritten=true` 时按 `warnings` 恢复。
 
-排障、各家怪癖及 `check` / `install` / `outdated` 见 [REFERENCE.md](REFERENCE.md)。
+排障、各家怪癖、退出码、模板格式及 `check` / `install` / `outdated` 见 [REFERENCE.md](REFERENCE.md)。

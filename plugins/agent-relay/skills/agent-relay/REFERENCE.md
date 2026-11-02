@@ -12,7 +12,7 @@ python3 "<SKILL_ROOT>/scripts/relay.py" outdated
 
 ## 协议与能力
 
-- 按 ACP v2 草案（2026-07）请求版本 2，同时携带 v1 字段；对端选 1 就走 v1，一条连接只协商一次。`--protocol 1` 可强制 v1。
+- 按 ACP v2 草案（2026-07）请求版本 2，同时携带 v1 字段；对端选 1 就走 v1，一条连接只协商一次。
 - v1 以 `session/prompt` 响应的 `stopReason` 判结束；v2 的响应只确认插入，要等 `state_update=idle`。v1 续会话优先 `session/resume`，不支持才用会回放历史的 `session/load`；v2 统一 `session/resume` 且不带 `replayFrom`。模式在 v1 走 `session/set_mode`，v2 只有 config option。
 - 注册表的协议矩阵（2026-10-26）把 37 家都记成 v1，但实测 codex、claude 已支持 v2，矩阵不能当准。agy 声称 v2 却返回 v1 结构并按 v1 工作，relay 会按实际结构降级。
 - 客户端不声明 fs / terminal 能力，相关请求一律回 method-not-found；elicitation 只声明 form，不声明需要人工浏览器的 url。claude 只在声明 form 后把 AskUserQuestion 转成 elicitation，字段形如 `question_0`、`question_0_custom`；codex 也实现了 elicitation。
@@ -51,20 +51,27 @@ python3 "<SKILL_ROOT>/scripts/relay.py" outdated
 - `permissions` 记录权限请求的标题与处理结果，用于审计放行或拒绝。
 - `auto_answers` 记录自动代答的问题和内容，用于核对 relay 代选了什么。
 - `questions` 保存未能代答的字段、说明和可选值，供续接时回答。
-- `timing` 用于查看总耗时、工具 / 模型耗时及首次工具、编辑、提交时间；按秒记账，短工具可能记为 0。
+- `timing` 含总耗时、首次编辑和首次提交时间，以及结束时距上次进展的 `since_progress_s`。
+
+## 代答、退出码与模板
+
+- `--answer` 优先于自动代答。`--auto-answer recommended` 只认标题以 `Recommended` / `推荐` 开头、或以 `（Recommended）` / `（推荐）` 结尾且不含否定词的选项；只在取值里标记等其他写法不识别。`first` 在没有推荐项时选第一项。覆盖不了必填字段时仍返回 `questions`。
+- 上一轮 elicitation 已经取消，`--answer` 只在新一轮 agent 再次发出对应字段的反问时生效。
+- 退出码：0 成功；1 其他错误或多家失败原因不一；3 timeout、4 idle、5 stalled、6 asked、7 quota、8 rate_limit、9 auth、10 resume_cwd、11 killed；参数写法错误由 argparse 返回 2，relay 自身的参数校验失败返回 1。
+- 模板在 `templates/<名字>.md`：`---` 之间逐行写 `key: value`，可设 `asks`、`auto_answer`、`timeout`、`idle_timeout`、`work_timeout`，`description` 只作说明；正文加在 prompt 前。新增角色就加一个文件。
 
 ## 改动、日志与超时
 
 - codex、claude 常通过 shell 写文件，工具调用没有路径；mcode 会先发空调用再补内容；hermes 报相对路径，审批还会另起调用。因此工具上报的路径不能单独代表全部改动，单家 git 运行需结合工作区与提交差异。
 - 有工具处于 pending / in_progress 时不计空闲或空转，避免误杀长测试；代价是 agent 若把调用一直挂起，只能由总超时终止。
-- 日志在 `~/.local/state/agent-relay/runs/`：`acp.jsonl` 记录 JSON-RPC，超过 4 KB 的 base64 / data 只留大小和 SHA-256 前 12 位；运行目录保留 7 天。`status.json` 约每秒原子更新，含 `caller_session`、进度和最近 40 步，结束时写终态，供 hoobnn-agent-mods 的 relay-bar 读取。
+- 日志在 `~/.local/state/agent-relay/runs/`：`acp.jsonl` 记录 JSON-RPC，超过 4 KB 的 base64 / data 只留大小和 SHA-256 前 12 位；运行目录保留 7 天。`status.json`（`v: 2`）约每秒原子更新，`state` 用 OSC 7501 的词：`working` / `blocked`（`kind: question`）/ `done` / `error`；另含 `caller_session`、进度、`since_progress_s` / `reading`（此后是否只在读）和最近 40 步，结束时写终态，供 hoobnn-agent-mods 的 relay-bar 读取。
 - 超时或信号会取消会话并杀整棵进程树，因为 agent 启动的命令可能已离开原进程组；第二次 SIGTERM / SIGINT 直接退出。
 
 ## 长任务实测
 
 - mcode 多次出现长时间只思考或阅读、很晚才首次编辑且不提交的情况；它更适合范围窄、目标明确的任务。同机多个 agent 同时跑重测试会互相拖慢并引发偶发失败，应错开。
 - pi 曾改写约 30 个 main 提交。发现历史改写时，先把当前 HEAD 保存为临时分支，再按警告恢复运行前 HEAD，最后从临时分支摘取 tree 并重新提交。
-- 新建 git worktree 只带受版本控制的文件；被 exclude 的 `.node-version`、`node_modules` 等需自行补齐。工作树删除后不要续接原会话。
+- 自己建的 git worktree 只带受版本控制的文件；`--worktree` 会补上未提交改动和 1 MB 以内的被忽略文件，被忽略的目录（如 `node_modules`）仍需对方自行安装。worktree 删除后不要续接原会话。
 
 ## 新增或升级 agent
 

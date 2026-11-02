@@ -30,7 +30,7 @@ class RelayTests(unittest.TestCase):
                 prompt.side_effect = ask
                 result = relay.execute(relay._ns(cli='opencode', cwd=tmp), 'test')
             self.assertEqual(result['error_kind'], 'asked')
-            self.assertIn('--answer', result['error'])
+            self.assertIn('--answer', result['hint'])
             self.assertTrue(result['questions'])
 
     def test_questions_preserve_relay_cancellation_reason(self):
@@ -50,7 +50,7 @@ class RelayTests(unittest.TestCase):
                 cancel.assert_called_once_with()
                 self.assertEqual(result['error_kind'], kind)
                 self.assertTrue(result['questions'])
-                self.assertNotIn('--answer', result['error'])
+                self.assertNotIn('--answer', result['hint'] or '')
 
     def test_auto_answer_choices_and_explicit_override(self):
         s = relay.Session(relay._ns(cli='opencode', auto_answer='recommended', answers={'x': 'manual'}), Path('/tmp'))
@@ -164,9 +164,9 @@ class RelayTests(unittest.TestCase):
     def test_show_result_and_running_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp)
-            (run / 'status.json').write_text(json.dumps({'cli': 'grok', 'state': 'running', 'steps': list(range(9))}))
+            (run / 'status.json').write_text(json.dumps({'cli': 'grok', 'state': 'working', 'steps': list(range(9))}))
             status = relay._show_data(run, 3)
-            self.assertEqual(status['state'], 'running')
+            self.assertEqual(status['state'], 'working')
             self.assertEqual(status['steps'], [4, 5, 6, 7, 8])
             (run / 'result.json').write_text(json.dumps({'ok': False, 'questions': [{'fields': {'x': {'options': ['a']}}}],
                                                          'uncommitted': ['a'], 'text': 'abcdef', 'commands': ['omitted']}))
@@ -202,14 +202,66 @@ class RelayTests(unittest.TestCase):
             data = json.loads(output.getvalue())
             self.assertEqual((data['cli'], data['text']), ('opencode', 'new'))
 
-    def test_long_work_timeout_warns(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.object(relay, 'STATE_DIR', Path(tmp)), \
-             patch.object(relay.Session, 'start', side_effect=RuntimeError('failed')):
-            result = relay.execute(relay._ns(cli='opencode', cwd=tmp, timeout=7200, work_timeout=7200), 'test')
-            self.assertTrue(any('空转检测阈值过长，接近失效' in w for w in result['warnings']))
-            result = relay.execute(relay._ns(cli='opencode', cwd=tmp, timeout=7200, work_timeout=2000), 'test')
-            self.assertTrue(any('空转检测阈值过长，接近失效' in w for w in result['warnings']))
+    def test_template_defaults_yield_to_explicit_flags(self):
+        def args(**kw):
+            base = dict(template='reviewer', asks=None, auto_answer=None, timeout=None, idle_timeout=None, work_timeout=None)
+            return relay.argparse.Namespace(**{**base, **kw})
+        a = args()
+        prompt = relay._apply_template(a, '审 x.py')
+        self.assertTrue(prompt.endswith('任务：\n审 x.py'))
+        self.assertEqual((a.asks, a.work_timeout, a.timeout), ('deny', 0, 1200))
+        a = args(asks='allow', template='implementer')
+        relay._apply_template(a, 'x')
+        self.assertEqual((a.asks, a.timeout), ('allow', 3600))
+        with self.assertRaises(SystemExit):
+            relay._apply_template(args(template='missing'), 'x')
 
+    def test_exit_code_by_error_kind(self):
+        ok, asked, quota = {'ok': True, 'error_kind': None}, {'ok': False, 'error_kind': 'asked'}, {'ok': False, 'error_kind': 'quota'}
+        self.assertEqual(relay._exit_code([ok]), 0)
+        self.assertEqual(relay._exit_code([ok, asked, dict(asked)]), relay.EXIT_CODES['asked'])
+        self.assertEqual(relay._exit_code([asked, quota]), 1)
+
+    def test_worktree_carries_local_state_and_drops_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp, 'repo')
+            subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+            (repo / 'sub').mkdir()
+            (repo / 'sub' / 'a.txt').write_text('a')
+            (repo / '.gitignore').write_text('.env\nnode_modules/\n')
+            subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+            subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'init'], check=True)
+            (repo / 'sub' / 'a.txt').write_text('changed')
+            (repo / 'sub' / 'new.txt').write_text('new')
+            (repo / '.env').write_text('K=1')
+            (repo / 'node_modules').mkdir()
+            (repo / 'node_modules' / 'x.js').write_text('x')
+            seen = {}
+            def fake(ns, prompt, git_diff=True):
+                cwd = Path(ns.cwd)
+                seen[ns.cli] = (cwd, git_diff, prompt)
+                self.assertEqual((cwd / 'a.txt').read_text(), 'changed')
+                self.assertTrue((cwd / 'new.txt').exists() and (cwd.parent / '.env').exists())
+                self.assertFalse((cwd.parent / 'node_modules').exists())
+                return {'ok': True, 'error_kind': None, 'warnings': [], 'uncommitted': ['b'] if ns.cli == 'codex' else []}
+            out = io.StringIO()
+            a = relay.argparse.Namespace(cli='grok,codex', resume=None, worktree=True, prompt='x', prompt_file=None,
+                                         template=None, files=[], answer=[], cwd=str(repo / 'sub'), model=[], effort=[],
+                                         asks=None, auto_answer=None, timeout=None, idle_timeout=None, work_timeout=None)
+            with patch.object(relay, '_installed', return_value=True), patch.object(relay, 'execute', fake), \
+                 redirect_stdout(out), self.assertRaises(SystemExit) as code:
+                relay.cmd_run(a)
+            self.assertEqual(code.exception.code, 0)
+            results = {r['cli']: r for r in json.loads(out.getvalue())}
+            self.assertTrue(all(git_diff and 'node_modules/' in prompt for _, git_diff, prompt in seen.values()))
+            self.assertIsNone(results['grok']['worktree'])  # 没改动：worktree 和分支都删掉
+            self.assertFalse(seen['grok'][0].exists())
+            branches = subprocess.run(['git', '-C', str(repo), 'branch', '--list', 'relay/*'],
+                                      capture_output=True, text=True).stdout
+            self.assertNotIn('grok', branches)
+            self.assertEqual(Path(results['codex']['worktree']) / 'sub', seen['codex'][0])
+            self.assertIn(results['codex']['branch'], branches)
+            self.assertEqual((repo / 'sub' / 'a.txt').read_text(), 'changed')  # 主工作区不动
 
 if __name__ == '__main__':
     unittest.main()

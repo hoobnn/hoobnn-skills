@@ -27,7 +27,6 @@ from pathlib import Path
 
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "agent-relay"
 CLIENT_INFO = {"name": "agent-relay", "title": "agent-relay", "version": "0.2.0"}
-LATEST_PROTOCOL = 2
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 EMBED_LIMIT = 1 << 20  # 超过 1 MB 的文本文件只发链接，让 agent 自己读
 STATUS_EVERY = 1.0  # status.json 最多每秒重写一次
@@ -37,6 +36,22 @@ LOG_DATA_LIMIT = 4096
 PROGRESS_KINDS = {"edit", "delete", "move", "execute"}
 KILLED = threading.Event()
 KILL_SIGNAL = None
+TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
+# 模板能设、命令行没写时才生效的参数及其内置默认值
+RUN_DEFAULTS = {"asks": "allow", "auto_answer": None, "timeout": 1200, "idle_timeout": 300, "work_timeout": 0}
+# error_kind → 退出码；shell 调用方不解析 JSON 也能分支
+EXIT_CODES = {"error": 1, "timeout": 3, "idle": 4, "stalled": 5, "asked": 6, "quota": 7, "rate_limit": 8,
+              "auth": 9, "resume_cwd": 10, "killed": 11}
+HINTS = {
+    "timeout": "会话还在；先查 commits / uncommitted 审视产物，再续接或重跑",
+    "idle": "会话还在；可以重跑或续接",
+    "stalled": "会话还在；续接时要求对方先动手",
+    "asked": "带 --resume 和 --answer 字段=取值 重跑并要求对方重新提问，或在 prompt 里直接回答",
+    "quota": "换一家 agent",
+    "rate_limit": "稍后重试",
+    "auth": "先在终端里登录这家 agent 再重试",
+    "resume_cwd": "换目录请开新会话，把上下文写进 prompt",
+}
 
 # 没有 messageId 的消息块遇到这些更新就另起一段（pi-acp 会先发一段启动横幅，再发思考和回答）
 SEGMENT_BREAKS = {"tool_call", "tool_call_update", "tool_call_content_chunk", "agent_thought", "agent_thought_chunk",
@@ -280,9 +295,8 @@ class Session:
         self.last_activity = time.time()
         self.last_progress = self.last_activity
         self.output_since_progress = self.read_since_progress = False
-        self.prompt_started = self.prompt_ended = self.timing_at = None
-        self.tool_s = self.model_s = 0.0
-        self.first_tool_s = self.first_edit_s = self.first_commit_s = None
+        self.prompt_started = self.prompt_ended = self.ended_at = None
+        self.first_edit_s = self.first_commit_s = None
         self.git_diff, self.head, self.head_checked = False, None, float("-inf")
         self.conn = None
         self.status_path, self.status_at, self.started, self.prompt_head = None, float("-inf"), time.time(), None
@@ -403,8 +417,6 @@ class Session:
         if new:
             t = self.tools[tid] = {"paths": set()}
             self.steps.append({"type": "tool", "id": tid})
-            if self.first_tool_s is None and self.prompt_started is not None:
-                self.first_tool_s = time.monotonic() - self.prompt_started
         for k in ("title", "kind", "status", "rawInput"):
             if u.get(k):
                 t[k] = u[k]
@@ -438,19 +450,6 @@ class Session:
                    for t in list(self.tools.values()) if (t.get("title") or t.get("kind"))
                    and (not progress_only or self._progress_tool(t)))
 
-    def _account_time(self):
-        """只在主线程轮询时累计工具和模型耗时。"""
-        if self.prompt_started is None:
-            return None
-        now = time.monotonic()
-        elapsed = max(0.0, now - self.timing_at)
-        if self.busy():
-            self.tool_s += elapsed
-        else:
-            self.model_s += elapsed
-        self.timing_at = now
-        return now
-
     def _check_head(self, timeout):
         now = time.monotonic()
         if not self.git_diff or now - self.head_checked < 15:
@@ -466,10 +465,11 @@ class Session:
 
     def timing(self):
         total = ((self.prompt_ended or time.monotonic()) - self.prompt_started) if self.prompt_started is not None else 0.0
-        return {"total_s": round(total, 1), "tool_s": round(self.tool_s, 1), "model_s": round(self.model_s, 1),
-                "first_tool_s": round(self.first_tool_s, 1) if self.first_tool_s is not None else None,
+        return {"total_s": round(total, 1),
                 "first_edit_s": round(self.first_edit_s, 1) if self.first_edit_s is not None else None,
-                "first_commit_s": round(self.first_commit_s, 1) if self.first_commit_s is not None else None}
+                "first_commit_s": round(self.first_commit_s, 1) if self.first_commit_s is not None else None,
+                "since_progress_s": round((self.ended_at or time.time()) - self.last_progress, 1)
+                if self.prompt_started is not None else None}
 
     def changed_paths(self):
         out = set()
@@ -533,7 +533,7 @@ class Session:
 
     # ---- 进度快照
 
-    def write_status(self, state="running", force=False, **extra):
+    def write_status(self, state="working", force=False, **extra):
         """给界面（如 hoobnn-agent-mods 的 relay-bar）读的 status.json：谁在跑、在干什么、最近几步。
         节流到每秒一次，先写临时文件再改名，读的一方不会读到半截。"""
         if not self.status_path:
@@ -543,7 +543,7 @@ class Session:
             if self.status_final or (not force and tick - self.status_at < STATUS_EVERY):
                 return
             self.status_at = tick
-            self.status_final = state not in ("starting", "running")
+            self.status_final = state != "working"
             self._dump_status(state, time.time(), extra)
 
     def _dump_status(self, state, now, extra):
@@ -558,10 +558,12 @@ class Session:
                 steps.append({"type": st["type"], "text": clip(st["text"])})
         named = [t for t in list(self.tools.values()) if t.get("title") or t.get("kind")]
         status = {
-            "v": 1, "cli": self.a.cli, "model": self.a.model, "effort": self.a.effort,
+            "v": 2, "cli": self.a.cli, "model": self.a.model, "effort": self.a.effort,
             "pid": os.getpid(), "cwd": str(self.cwd), "prompt": self.prompt_head,
             "started": round(self.started, 3), "updated": round(now, 3), "state": state,
             "session_id": self.sid,
+            # 观察值：距上次写入 / 执行 / 提交多久，此后是否只在读；空转与否由调用方判断
+            "since_progress_s": round(now - self.last_progress, 1), "reading": self.read_since_progress,
             "caller_session": os.environ.get("CLAUDE_CODE_SESSION_ID") or None,  # 界面据此只显示本会话派的活
             "tools": {"done": sum(t.get("status") in ("completed", "failed") for t in named), "total": len(named)},
             "timing": self.timing(), "steps": steps, **extra,
@@ -580,21 +582,19 @@ class Session:
         if not cmd:
             raise RuntimeError(f"{self.a.cli} 的 ACP server 没装，先运行 relay.py install {self.spec.get('install')}")
         self.conn = Connection(cmd, self.cwd, run_dir, self.on_request, self.on_notify)
-        req = self.a.protocol
-        # v1 字段一并带上：对端选 1 时按 v1 读能力，v2 要求忽略未知字段
-        params = {"protocolVersion": req, "clientInfo": CLIENT_INFO,
+        # 请求 v2 并带上 v1 字段：对端选 1 时按 v1 读能力，v2 要求忽略未知字段
+        params = {"protocolVersion": 2, "clientInfo": CLIENT_INFO, "info": CLIENT_INFO,
+                  "capabilities": {"elicitation": {"form": {}}},
                   "clientCapabilities": {"fs": {"readTextFile": False, "writeTextFile": False}, "terminal": False,
                                          "elicitation": {"form": {}}}}
-        if req == 2:
-            params.update(info=CLIENT_INFO, capabilities={"elicitation": {"form": {}}})
         try:
             r = self.conn.request("initialize", params, 120)
         except RpcError as e:
             if e.code == -32022:
-                raise RuntimeError(f"协议版本不兼容：请求 {req}，对端支持 {(e.data or {}).get('supported')}")
+                raise RuntimeError(f"协议版本不兼容：对端支持 {(e.data or {}).get('supported')}")
             raise
         self.version = r.get("protocolVersion")
-        if self.version not in (1, 2) or self.version > req:
+        if self.version not in (1, 2):
             raise RuntimeError(f"对端选了不支持的协议版本 {self.version}")
         if self.version == 2 and "capabilities" not in r and "agentCapabilities" in r:
             self.version = 1  # 声称 v2 却回 v1 结构（agy），按 v1 线协议走
@@ -704,7 +704,7 @@ class Session:
         blocks = self._blocks(text)
         self.last_activity = self.last_progress = time.time()
         self.output_since_progress = self.read_since_progress = False
-        self.prompt_started = self.timing_at = time.monotonic()
+        self.prompt_started = time.monotonic()
         try:
             q = self.conn.send("session/prompt", {"sessionId": self.sid, "prompt": blocks})
             while not self.done.is_set():
@@ -714,7 +714,6 @@ class Session:
                     r = q.get(timeout=1)
                 except queue.Empty:
                     r = None
-                self._account_time()
                 self._check_head(max(1, min(5, deadline - time.time())))
                 if r is not None:
                     q = queue.Queue()  # 响应只处理一次
@@ -736,11 +735,7 @@ class Session:
                         and now - self.last_progress > self.a.work_timeout and not self.busy(progress_only=True)):
                     raise StallError(self.a.work_timeout)
         finally:
-            self.prompting = False
-            try:
-                self.prompt_ended = self._account_time()
-            except Exception:
-                self.prompt_ended = time.monotonic()
+            self.prompting, self.prompt_ended, self.ended_at = False, time.monotonic(), time.time()
 
     def cancel(self):
         if self.sid and not self.done.is_set():
@@ -932,23 +927,9 @@ def _git_output(cwd, *args, timeout=60):
 
 
 def _git_head_start(cwd):
-    """返回（是否追踪提交，HEAD）；空仓库是（True, None）。"""
+    """返回（是否追踪提交，HEAD）；还没有提交的空仓库是（True, None）。"""
     repo = _git_run(cwd, "rev-parse", "--git-dir")
-    if repo is None or repo.returncode:
-        return False, None
-    head = _git_run(cwd, "rev-parse", "--verify", "-q", "HEAD")
-    if head is None:
-        return False, None
-    if head.returncode:
-        ref = _git_run(cwd, "symbolic-ref", "-q", "HEAD")
-        if ref is None or ref.returncode:
-            return False, None
-        name = ref.stdout.decode(errors="replace").strip()
-        present = _git_run(cwd, "show-ref", "--verify", "--quiet", name)
-        if present is None:
-            return False, None
-        return present.returncode == 1, None
-    return True, head.stdout.decode(errors="replace").strip() or None
+    return (False, None) if repo is None or repo.returncode else (True, _git_head(cwd))
 
 
 def _git_head(cwd, timeout=60):
@@ -1077,9 +1058,6 @@ def _resume_cwd(session_id, cli):
 def execute(a, prompt, git_diff=True):
     """跑一轮，返回统一结果。git_diff=False 时只按工具调用统计改动（多家并发跑同一目录时互相分不清）。"""
     cwd = Path(a.cwd or os.getcwd()).resolve()
-    timeout_warning = a.asks == "allow" and a.work_timeout > 0 and (a.work_timeout >= a.timeout or a.work_timeout > 1800)
-    if timeout_warning:
-        print("提示：空转检测阈值过长，接近失效", file=sys.stderr)
     previous_cwd = _resume_cwd(a.resume, a.cli) if a.resume else None
     run_dir = _new_run_dir(a.cli)
     clean_litter = _litter_guard(a.cli, cwd)
@@ -1090,11 +1068,11 @@ def execute(a, prompt, git_diff=True):
     s = Session(a, cwd)
     s.git_diff, s.head = track_commits, head_before
     s.status_path, s.prompt_head = run_dir / "status.json", " ".join(prompt.split())[:200]
-    s.write_status("starting", force=True)
+    s.write_status(force=True)
     error = error_kind = None
     try:
         if previous_cwd and Path(previous_cwd).resolve() != cwd:
-            raise RuntimeError(f"会话原 cwd 为 {previous_cwd}，本次为 {cwd}；换目录请开新会话，把上下文写进 prompt")
+            raise RuntimeError(f"会话原 cwd 为 {previous_cwd}，本次为 {cwd}")
         s.start(run_dir)
         s.open()
         s.configure()
@@ -1104,11 +1082,11 @@ def execute(a, prompt, git_diff=True):
     except TimeoutError:
         error, error_kind = f"超过 {a.timeout}s 被终止", "timeout"
     except IdleError:
-        error = f"连续 {a.idle_timeout}s 没有任何输出、也没有工具在跑，判定卡住，已取消；会话还在，可以重跑或续接"
+        error = f"连续 {a.idle_timeout}s 没有任何输出、也没有工具在跑，判定卡住，已取消"
         error_kind = "idle"
     except StallError:
         activity = "只在读、搜索或抓取，没有写入或执行进展" if s.read_since_progress else "只在想或输出文字，没有动手进展"
-        error = f"连续 {a.work_timeout}s {activity}，判定空转，已取消；会话还在，可以续接并要求先动手"
+        error = f"连续 {a.work_timeout}s {activity}，按 --work-timeout 取消"
         error_kind = "stalled"
     except (RpcError, RuntimeError) as e:
         error = str(e)
@@ -1127,8 +1105,6 @@ def execute(a, prompt, git_diff=True):
     after = _git_snapshot(cwd) if before is not None else None
     head_after = _git_head(cwd, timeout=5) if track_commits else None
     history_rewritten, warnings = _git_history(cwd, head_before, head_after, refs_before) if track_commits else (False, [])
-    if timeout_warning:
-        warnings.append("空转检测阈值过长，接近失效")
     if head_after and head_before != head_after and s.first_commit_s is None and s.prompt_started is not None:
         s.first_commit_s = (s.prompt_ended or time.monotonic()) - s.prompt_started
     git_info = _git_commits(cwd, head_before, head_after) if track_commits else None
@@ -1140,7 +1116,7 @@ def execute(a, prompt, git_diff=True):
     if not error and s.stop_reason not in (None, "end_turn", "max_tokens", "max_turn_requests"):
         error = f"stopReason={s.stop_reason}"
     if s.questions and error_kind not in ("timeout", "idle", "stalled", "killed"):
-        error = "agent 在等回答 questions 里的问题：带 --resume 和 --answer 字段=取值 重跑，或在 prompt 里直接回答"
+        error = "agent 在等回答 questions 里的问题"
         error_kind = "asked"
     if error and s.conn and s.conn.proc.returncode not in (0, None, -15, -9):
         tail = (run_dir / "stderr").read_text(errors="replace").strip()[-600:]
@@ -1149,8 +1125,6 @@ def execute(a, prompt, git_diff=True):
     text = s.text()
     final_error = error or (None if text else "agent 没有返回文本")
     error_kind = error_kind or _error_kind(final_error)
-    if error_kind == "resume_cwd" and "换目录" not in final_error:
-        final_error += "；换目录请开新会话，把上下文写进 prompt"
     commits, committed_paths = git_info or (None, set())
     result = {
         "ok": not error and bool(text),
@@ -1161,6 +1135,7 @@ def execute(a, prompt, git_diff=True):
         "cost_usd": s.cost,
         "error": final_error,
         "error_kind": error_kind,
+        "hint": HINTS.get(error_kind),
         "log": str(run_dir),
         "protocol_version": s.version,
         "stop_reason": s.stop_reason,
@@ -1186,8 +1161,9 @@ def execute(a, prompt, git_diff=True):
     if a.full:
         result["steps"] = s.full_steps()
     (run_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
-    s.write_status("asked" if result["error_kind"] == "asked" else "done" if result["ok"] else "failed", force=True,
-                   ok=result["ok"], error=result["error"], error_kind=result["error_kind"], files_changed=len(result["files_changed"]),
+    asked = result["error_kind"] == "asked"
+    s.write_status("blocked" if asked else "done" if result["ok"] else "error", force=True, kind="question" if asked else None,
+                   ok=result["ok"], error=result["error"], error_kind=result["error_kind"], hint=result["hint"], files_changed=len(result["files_changed"]),
                    commits=len(result.get("commits", [])), cost_usd=s.cost, ended=round(time.time(), 3))
     return result
 
@@ -1197,7 +1173,7 @@ def execute(a, prompt, git_diff=True):
 
 def _ns(**kw):
     base = dict(cli=None, model=None, effort=None, resume=None, cwd=None, timeout=300,
-                protocol=LATEST_PROTOCOL, files=[], answers={}, auto_answer=None, asks="allow", full=False, idle_timeout=300, work_timeout=0)
+                files=[], answers={}, auto_answer=None, asks="allow", full=False, idle_timeout=300, work_timeout=0)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -1215,7 +1191,7 @@ def _solid_png(rgb, size=32):
             + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
-def _check_cli(cli, model, timeout, protocol):
+def _check_cli(cli, model, timeout):
     """四项冒烟测试：回复 OK、续会话能取回上一轮信息、按本机权限配置能写文件、读到随 prompt 附带的文本和图片。"""
     report = {"cli": cli, "checks": {}, "cost_usd": 0.0}
 
@@ -1228,7 +1204,7 @@ def _check_cli(cli, model, timeout, protocol):
     with tempfile.TemporaryDirectory(prefix=f"relay-check-{cli}-") as tmp:
         work = Path(tmp)
         subprocess.run(["git", "init", "-q", str(work)], check=False)
-        ns = lambda **kw: _ns(cli=cli, model=model, timeout=timeout, protocol=protocol, cwd=work, **kw)
+        ns = lambda **kw: _ns(cli=cli, model=model, timeout=timeout, cwd=work, **kw)
 
         r = execute(ns(), "只回复两个字母: OK")
         record("reply", r["ok"] and "OK" in (r["text"] or "").upper(), r)
@@ -1260,7 +1236,7 @@ def cmd_check(a):
     for c in clis:
         _validate_cli(c)
     with ThreadPoolExecutor(max_workers=len(clis)) as pool:
-        reports = list(pool.map(lambda c: _check_cli(c, a.model, a.timeout, a.protocol), clis))
+        reports = list(pool.map(lambda c: _check_cli(c, a.model, a.timeout), clis))
     print(json.dumps(reports, ensure_ascii=False, indent=2))
     sys.exit(0 if all(r["pass"] for r in reports) else 1)
 
@@ -1273,7 +1249,7 @@ def _show_data(path, tail):
     data = json.loads(path.read_text())
     if not isinstance(data, dict):
         raise ValueError("需要单个运行结果")
-    keys = ("cli", "ok", "error_kind", "error", "session_id", "timing", "commits", "uncommitted",
+    keys = ("cli", "ok", "error_kind", "error", "hint", "session_id", "worktree", "branch", "timing", "commits", "uncommitted",
             "warnings", "questions", "auto_answers", "state", "steps", "tools", "cwd")
     out = {k: data[k] for k in keys if k in data}
     if "cli" not in out:
@@ -1323,7 +1299,7 @@ def _format_show(data):
             return ", ".join(f"{k}={display(v)}" for k, v in value.items()) if isinstance(value, dict) else " / ".join(map(display, value))
         return str(value)
 
-    for key in ("cli", "ok", "error_kind", "error", "session_id", "cwd", "state"):
+    for key in ("cli", "ok", "error_kind", "error", "hint", "session_id", "cwd", "worktree", "branch", "state"):
         if key in data:
             lines.append(f"{key}: {display(data[key])}")
     if "timing" in data:
@@ -1381,7 +1357,7 @@ def _format_show(data):
 def cmd_options(a):
     _validate_cli(a.cli)
     cwd = Path(a.cwd or os.getcwd()).resolve()
-    s = Session(_ns(cli=a.cli, cwd=a.cwd, protocol=a.protocol), cwd)
+    s = Session(_ns(cli=a.cli, cwd=a.cwd), cwd)
     clean_litter = _litter_guard(a.cli, cwd)
     try:
         s.start(_new_run_dir(a.cli))
@@ -1458,6 +1434,87 @@ def _per_cli(values, cli):
     return (scoped or plain or [None])[-1]
 
 
+def _load_template(name):
+    """templates/<name>.md：--- 之间是 key: value 参数，正文前置到 prompt。"""
+    path = TEMPLATE_DIR / f"{name}.md"
+    if not path.is_file():
+        names = sorted(p.stem for p in TEMPLATE_DIR.glob("*.md"))
+        sys.exit(f"没有模板 {name}，可选：{', '.join(names) or '无'}")
+    head, sep, body = path.read_text().removeprefix("---\n").partition("\n---\n")
+    if not sep:
+        sys.exit(f"模板 {path} 缺少 --- 包住的参数头")
+    settings = {}
+    for line in head.splitlines():
+        key, _, value = line.partition(":")
+        key, value = key.strip().replace("-", "_"), value.strip()
+        if key == "description" or not key:
+            continue
+        if key not in RUN_DEFAULTS:
+            sys.exit(f"模板 {name} 的参数 {key} 不支持，可用：{', '.join(RUN_DEFAULTS)}")
+        settings[key] = int(value) if key.endswith("timeout") else value
+    if settings.get("asks", "allow") not in ("allow", "deny") or \
+            settings.get("auto_answer") not in (None, "recommended", "first"):
+        sys.exit(f"模板 {name} 的 asks / auto_answer 取值不对")
+    return settings, body.strip()
+
+
+def _apply_template(a, prompt):
+    """优先级：命令行显式参数 > 模板 > 内置默认。"""
+    settings, body = _load_template(a.template) if a.template else ({}, "")
+    for key, default in RUN_DEFAULTS.items():
+        if getattr(a, key) is None:
+            setattr(a, key, settings.get(key, default))
+    return f"{body}\n\n任务：\n{prompt}" if body else prompt
+
+
+def _add_worktree(cwd, cli):
+    """在 <仓库>.worktrees/relay-<cli>-<id>/ 从 HEAD 开新分支，带上主工作区的未提交改动、未跟踪文件和
+    不超过 1 MB 的被忽略文件；被忽略的目录（依赖、构建产物）不带，记在 dirs 里。"""
+    top = _git_output(cwd, "rev-parse", "--show-toplevel")
+    if top is None or not _git_head(cwd):
+        sys.exit("--worktree 需要在至少有一个提交的 git 仓库里运行")
+    top = Path(top.strip()).resolve()
+    tag = f"{cli}-{uuid.uuid4().hex[:6]}"
+    branch, root = f"relay/{tag}", top.parent / f"{top.name}.worktrees" / f"relay-{tag}"
+    r = _git_run(top, "worktree", "add", "-q", "-b", branch, str(root), "HEAD")
+    if r is None or r.returncode:
+        sys.exit(f"创建 worktree 失败：{r.stderr.decode(errors='replace').strip() if r else '超时'}")
+    stash = (_git_output(top, "stash", "create") or "").strip()  # 已跟踪文件的改动；不动主工作区
+    if stash and _git_output(root, "stash", "apply", "-q", stash) is None:
+        sys.exit(f"未提交改动没能带进 worktree，worktree 留在 {root}")
+
+    def listing(*flags):
+        return [rel for rel in (_git_output(top, "ls-files", "-z", "--others", "--exclude-standard", *flags) or "").split("\0") if rel]
+    ignored = listing("--ignored", "--directory")
+    for rel in listing() + [rel for rel in ignored if not rel.endswith("/")]:
+        src = top / rel
+        if src.is_file() and not (rel in ignored and src.stat().st_size > EMBED_LIMIT):
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, root / rel)
+    return {"cwd": root / cwd.resolve().relative_to(top), "root": root, "branch": branch, "top": top,
+            "dirs": [rel for rel in ignored if rel.endswith("/")]}
+
+
+def _settle_worktree(result, wt):
+    """对方没提交也没改文件就删掉 worktree 和分支（结果里记 null），否则留给调用方审阅。"""
+    if result.get("commits") or result.get("uncommitted") or result.get("error_kind") == "asked":
+        result["worktree"], result["branch"] = str(wt["root"]), wt["branch"]
+        return
+    _git_run(wt["top"], "worktree", "remove", "--force", str(wt["root"]))
+    _git_run(wt["top"], "branch", "-D", wt["branch"])
+    try:
+        wt["root"].parent.rmdir()  # 最后一个 worktree 删掉后不留空的 <仓库>.worktrees/
+    except OSError:
+        pass
+    result["worktree"] = result["branch"] = None
+
+
+def _exit_code(results):
+    """全部成功 0；失败原因只有一种时用它的退出码，否则 1。"""
+    kinds = {r["error_kind"] or "error" for r in results if not r["ok"]}
+    return EXIT_CODES.get(kinds.pop(), 1) if len(kinds) == 1 else (0 if not kinds else 1)
+
+
 def cmd_run(a):
     clis = a.cli.split(",")
     for cli in clis:
@@ -1467,6 +1524,8 @@ def cmd_run(a):
             sys.exit(f"{cli} 的 ACP server 不可用{hint}")
     if len(clis) > 1 and a.resume:
         sys.exit("--resume 只能接一家的会话")
+    if a.worktree and a.resume:
+        sys.exit("--resume 用 --cwd 指向原 worktree，不要再加 --worktree")
     prompt = a.prompt
     if a.prompt_file:
         prompt = Path(a.prompt_file).read_text()
@@ -1474,25 +1533,37 @@ def cmd_run(a):
         prompt = sys.stdin.read()
     if not prompt or not prompt.strip():
         sys.exit("prompt 为空")
+    prompt = _apply_template(a, prompt)
     for f in a.files:
         if not Path(f).expanduser().exists():
             sys.exit(f"附件不存在：{f}")
     if any("=" not in x for x in a.answer):
         sys.exit("--answer 要写成 字段=取值")
     a.answers = dict(x.split("=", 1) for x in a.answer)
+    cwd = Path(a.cwd or os.getcwd()).resolve()
+    trees = {cli: _add_worktree(cwd, cli) for cli in clis} if a.worktree else {}  # 主线程串行建，避免 git 锁冲突
+    dirs = next(iter(trees.values()))["dirs"] if trees else []
+    if dirs:
+        shown = "、".join(dirs[:10]) + (f" 等 {len(dirs)} 个" if len(dirs) > 10 else "")
+        prompt += f"\n\n注意：你在新开的 git worktree 里，被忽略的目录没有带过来（{shown}），需要时先安装依赖或构建。"
 
     def one(cli):
         ns = argparse.Namespace(**{**vars(a), "cli": cli, "model": _per_cli(a.model, cli),
                                    "effort": _per_cli(a.effort, cli)})
-        return execute(ns, prompt, git_diff=len(clis) == 1)
+        if trees:
+            ns.cwd = str(trees[cli]["cwd"])
+        result = execute(ns, prompt, git_diff=len(clis) == 1 or bool(trees))
+        if trees:
+            _settle_worktree(result, trees[cli])
+        return result
     if len(clis) == 1:
         result = one(clis[0])
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        sys.exit(0 if result["ok"] else 1)
+        sys.exit(_exit_code([result]))
     with ThreadPoolExecutor(max_workers=len(clis)) as pool:
         results = [{"cli": c, **r} for c, r in zip(clis, pool.map(one, clis))]
     print(json.dumps(results, ensure_ascii=False, indent=2))
-    sys.exit(0 if all(r["ok"] for r in results) else 1)
+    sys.exit(_exit_code(results))
 
 
 def main():
@@ -1512,13 +1583,16 @@ def main():
     r.add_argument("--answer", action="append", default=[],
                    help="代答 agent 的反问，写成 字段=取值，可重复；字段名见上一轮输出的 questions")
     r.add_argument("--auto-answer", choices=("recommended", "first"), help="自动选择推荐选项；first 在没有推荐时选第一项")
+    r.add_argument("-t", "--template", help="角色模板（templates/ 下的文件名），正文前置到 prompt，参数作默认值")
     r.add_argument("--cwd", help="工作目录，默认当前目录")
-    r.add_argument("--timeout", type=int, default=1200, help="秒，默认 1200")
-    r.add_argument("--idle-timeout", type=int, default=300,
+    r.add_argument("--worktree", action="store_true",
+                   help="每家在 <仓库>.worktrees/relay-<cli>-<id>/ 新开分支的 worktree 里跑，结果带完整 git 改动")
+    r.add_argument("--timeout", type=int, help="秒，默认 1200")
+    r.add_argument("--idle-timeout", type=int,
                    help="连续多少秒没有任何输出、也没有工具在跑就判定卡住，默认 300，0 关闭")
-    r.add_argument("--work-timeout", type=int, default=900,
-                   help="连续多少秒只读或思考、没有写入或执行进展就判定空转，默认 900，0 关闭")
-    r.add_argument("--asks", choices=("allow", "deny"), default="allow",
+    r.add_argument("--work-timeout", type=int,
+                   help="连续多少秒只读或思考、没有写入或执行进展就取消，默认 0（只记录 since_progress_s，不取消）")
+    r.add_argument("--asks", choices=("allow", "deny"),
                    help="agent 按本机配置来问权限时：allow 代为放行（默认），deny 当成拒绝")
     r.add_argument("--full", action="store_true", help="输出里附上完整过程 steps：消息、思考、工具调用")
     show = sub.add_parser("show", help="查看运行结果或当前进度")
@@ -1536,9 +1610,6 @@ def main():
     i = sub.add_parser("install", help="安装需要单独下载的 ACP server（目前只有 agy）")
     i.add_argument("cli")
     sub.add_parser("outdated", help="对照 ACP 注册表，列出钉住的适配器有没有新版本")
-    for sp in (r, o, c):
-        sp.add_argument("--protocol", type=int, choices=(1, 2), default=LATEST_PROTOCOL,
-                        help="请求的 ACP 协议版本，默认 2（v2 草案），对端只支持 v1 时自动回落")
     a = p.parse_args()
     if a.command in ("run", "check"):
         for sig in (signal.SIGTERM, signal.SIGINT):
