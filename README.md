@@ -10,7 +10,7 @@ Claude Code、Codex 通用的 Agent Skills，涵盖 Git 工作流、数据竞赛
 
 </div>
 
-一组适用于 Claude Code、Codex 和 opencode 的 Agent Skills，遵循 [Agent Skills](https://agentskills.io) 规范，通过 `npx skills add` 安装，同时支持 Antigravity 和 Grok。
+**hoobnn-skills** 是一组免费开源（MIT）的 Agent Skills，也是 Claude Code 插件市场：适用于 Claude Code、Codex、opencode、Grok Build 和 Antigravity CLI，包含 Git 提交与 worktree 工作流、数据竞赛（Kaggle / 天池）流程、数学建模（国赛 / 美赛）流程和跨 agent 调用（agent-relay）。遵循 [Agent Skills](https://agentskills.io) 规范，通过 `npx skills add` 安装，同时支持 Antigravity 和 Grok。
 
 目前包含四组：
 
@@ -121,6 +121,22 @@ agy 全局安装时不读 `~/.agents/skills`，要在 `~/.gemini/config/skills.j
 ```json
 { "entries": [ { "path": "/Users/<you>/.agents/skills" } ] }
 ```
+
+## 常见问题
+
+**支持哪些 agent？** Claude Code、Codex、opencode、Grok Build 和 Antigravity CLI（agy）；pi 和 MiniMax Code 直接扫描 `~/.agents/skills`。见上面的「支持的 Agent」。
+
+**怎么安装、更新和卸载？** 推荐 `npx skills add hoobnn/hoobnn-skills --skill '*' -g -a claude-code -y` 安装，`npx skills update -g -y` 更新，卸载用 `npx skills remove -g`（也可以直接删 `~/.agents/skills` 下对应目录）。同一个 agent 不要同时用 `npx skills` 和插件市场两种方式装，否则同名 skill 会重复。
+
+**只想要其中一个 skill 行吗？** 行，`--skill git-worktree` 这样按名字装；插件市场则是 `git-kit`、`comp-kit`、`math-modeling`、`agent-relay` 四个插件按组装。
+
+**装好后怎么用？** 新开会话，直接用自然语言描述需求，agent 会选对应的 skill；也可以手动调用，Claude Code / opencode / Grok / agy 用 `/git-commit`，Codex 用 `$git-commit`。
+
+**会联网或上传我的代码吗？** skill 本身是给 agent 读的说明文件和少量辅助脚本，不会收集或上传数据。会联网的只有明确调用外部服务的部分：`math-modeling` 的论文检索工具会访问 OpenAlex 和 AnySearch；`agent-relay` 会在本机启动你指定的其他 agent，这些 agent 各自如何联网由它们自己的配置决定。
+
+**skill 没有触发或装不上怎么办？** 先确认安装后新开了会话；`SKILL.md` 的 frontmatter 里 `name` 要和目录名一致，值以 `[` 或 `<` 开头时要加引号，否则 `npx skills` 会跳过；同一个 agent 重复装了两种方式也会冲突。
+
+**和别的 skill 集合有什么不同？** 这里只收作者自己在 Git 工作流、数据竞赛、数学建模和跨 agent 协作中反复使用的流程，保持精简；想找更大的通用 skill 合集，可以去 [Agent Skills](https://agentskills.io) 生态里挑。
 
 ## 编写 skill 的约定
 

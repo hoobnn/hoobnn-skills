@@ -6,5 +6,19 @@
   "author": {
     "name": "hoobnn",
     "email": "uhoobnn@ikuyu.com"
-  }
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-skills",
+  "repository": "https://github.com/hoobnn/hoobnn-skills",
+  "license": "MIT",
+  "keywords": [
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "math-modeling",
+    "cumcm",
+    "mcm",
+    "icm",
+    "latex",
+    "mathematical-modeling-contest"
+  ]
 }

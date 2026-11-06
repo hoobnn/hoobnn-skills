@@ -5,7 +5,7 @@
     "name": "hoobnn",
     "email": "uhoobnn@ikuyu.com"
   },
-  "description": "hoobnn 的个人 skills / 插件集合",
+  "description": "Agent Skills 与 Claude Code 插件市场（Claude Code / Codex / opencode 通用）：Git 提交与 worktree 工作流、数据竞赛、数学建模、跨 agent 调用 · Agent Skills and plugin marketplace for coding agents",
   "version": "0.14.0",
   "plugins": [
     {
