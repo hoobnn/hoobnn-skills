@@ -10,7 +10,7 @@ Agent Skills for Claude Code and Codex, covering Git workflows, data science com
 
 </div>
 
-**hoobnn-skills** is a free, open-source (MIT) set of Agent Skills and a Claude Code plugin marketplace. It works with Claude Code, Codex, opencode, Grok Build and Antigravity CLI, and covers Git commit and worktree workflows, data science competition (Kaggle, Tianchi) workflows, math modeling contest (CUMCM, MCM / ICM) workflows and cross-agent delegation (agent-relay). The skills follow the [Agent Skills](https://agentskills.io) spec and install with `npx skills add`; Antigravity and Grok are also supported.
+**hoobnn-skills** is a free, open-source (MIT) set of Agent Skills and a Claude Code plugin marketplace. It works with Claude Code, Codex, opencode, Grok Build and Antigravity CLI, and covers Git commit and worktree workflows, data science competition (Kaggle, Tianchi) workflows and math modeling contest (CUMCM, MCM / ICM) workflows. The skills follow the [Agent Skills](https://agentskills.io) spec and install with `npx skills add`; Antigravity and Grok are also supported.
 
 There are four groups:
 
@@ -60,7 +60,7 @@ grok plugin marketplace add hoobnn/hoobnn-skills
 grok plugin install git-kit@hoobnn-skills
 ```
 
-Available plugins: `git-kit`, `comp-kit`, `math-modeling`, `agent-relay`.
+Available plugins: `git-kit`, `comp-kit`, `math-modeling`.
 
 ### Update
 
@@ -100,12 +100,6 @@ These are distilled from two competitions: a time-series decision task, and a CV
 |---|---|
 | `math-modeling` | Three-role workflow for CUMCM / MCM (modeler, programmer, writer), with notes on 7 algorithm families, subagent review, and six helper tools: docx, latex, figure, xlsx, pdf and paper search |
 
-### Calling other agents (agent-relay)
-
-| Skill | What it does | Example |
-|---|---|---|
-| `agent-relay` | Talks to grok, agy, codex, opencode, pi, mcode (MiniMax Code), hermes, dsh (DeepSeek Harness) or claude over ACP (following the v2 draft, with v1 fallback) from inside the current agent to delegate a task, get a second opinion or compare several agents in parallel. Handles version negotiation, permission replies, model and reasoning effort, attachments (files and images), questions the agent asks back, session resume and output parsing, and returns one JSON object (answer, session ID, cost, protocol version, files changed, commands run, raw log folder, plus the questions when the agent asks back). A run that goes silent for too long is treated as stuck and ended early. Permissions follow each agent's own local config; operations it asks about are approved by default, or can all be denied | "ask grok whether this code has race conditions" |
-
 ## Supported agents
 
 | Agent | `-a` value | Manual call |
@@ -130,15 +124,15 @@ agy doesn't read `~/.agents/skills` globally. Register it once in `~/.gemini/con
 
 **How do I install, update and uninstall?** Install with `npx skills add hoobnn/hoobnn-skills --skill '*' -g -a claude-code -y`, update with `npx skills update -g -y`, and uninstall with `npx skills remove -g` (or delete the skill's folder under `~/.agents/skills`). Don't install through both `npx skills` and the plugin marketplace for the same agent, or the skills show up twice.
 
-**Can I install just one skill?** Yes, by name, such as `--skill git-worktree`. Through the plugin marketplace the unit is a plugin: `git-kit`, `comp-kit`, `math-modeling` or `agent-relay`.
+**Can I install just one skill?** Yes, by name, such as `--skill git-worktree`. Through the plugin marketplace the unit is a plugin: `git-kit`, `comp-kit` or `math-modeling`.
 
 **How do I use them once installed?** Start a new session and describe what you need; the agent picks the matching skill. You can also call one by hand: `/git-commit` in Claude Code, opencode, Grok and agy, `$git-commit` in Codex.
 
-**Do they use the network or upload my code?** A skill is a set of instructions for the agent plus a few helper scripts; none of it collects or uploads data. Only the parts that call outside services use the network: `math-modeling`'s paper search tool queries OpenAlex and AnySearch, and `agent-relay` starts the other agents you name on your machine, whose own network use follows their own configuration.
+**Do they use the network or upload my code?** A skill is a set of instructions for the agent plus a few helper scripts; none of it collects or uploads data. Only the parts that call outside services use the network: `math-modeling`'s paper search tool queries OpenAlex and AnySearch.
 
 **A skill doesn't trigger or won't install?** Check that you started a new session after installing; that `name` in `SKILL.md` frontmatter matches the folder name, and is quoted if the value starts with `[` or `<` (otherwise `npx skills` skips it); and that you didn't install through both methods.
 
-**How is this different from other skill collections?** It only holds the workflows the author uses repeatedly for Git, data science competitions, math modeling and cross-agent work, kept short. For broader general-purpose collections, look through the [Agent Skills](https://agentskills.io) ecosystem.
+**How is this different from other skill collections?** It only holds the workflows the author uses repeatedly for Git, data science competitions and math modeling, kept short. For broader general-purpose collections, look through the [Agent Skills](https://agentskills.io) ecosystem.
 
 ## Conventions for writing skills
 

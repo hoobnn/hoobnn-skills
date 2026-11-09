@@ -5,8 +5,8 @@
     "name": "hoobnn",
     "email": "uhoobnn@ikuyu.com"
   },
-  "description": "Agent Skills 与 Claude Code 插件市场（Claude Code / Codex / opencode 通用）：Git 提交与 worktree 工作流、数据竞赛、数学建模、跨 agent 调用 · Agent Skills and plugin marketplace for coding agents",
-  "version": "0.14.0",
+  "description": "Agent Skills 与 Claude Code 插件市场（Claude Code / Codex / opencode 通用）：Git 提交与 worktree 工作流、数据竞赛、数学建模 · Agent Skills and plugin marketplace for coding agents",
+  "version": "0.15.0",
   "plugins": [
     {
       "name": "git-kit",
@@ -22,11 +22,6 @@
       "name": "math-modeling",
       "source": "./plugins/math-modeling",
       "description": "数学建模竞赛（CUMCM / MCM / ICM）三角色工作流：建模分析、代码实现、论文撰写，含 7 大类算法资源库、三角色工作细则、Subagent 质检门禁，以及 docx / latex / figure / xlsx / pdf / paper_search 六个子工具。"
-    },
-    {
-      "name": "agent-relay",
-      "source": "./plugins/agent-relay",
-      "description": "通过 ACP（Agent Client Protocol，跟随 v2 草案并兼容 v1）在当前 agent 里调用其他 AI 编程 agent（grok / agy / codex / opencode / pi / mcode / hermes / dsh / claude）：统一版本协商、权限应答、模型与推理强度、附件、反问、续会话和输出解析，报告改动的文件和执行的命令，用于派活、第二意见和多模型并行对比评审。"
     }
   ]
 }
