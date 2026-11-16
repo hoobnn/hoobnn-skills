@@ -84,6 +84,9 @@ echo "$root/$key/$(printf '%s' "$NAME" | tr / -)"
 
 - worktree 共享 `.git`，不额外占仓库空间。
 - 旧版本把 worktree 建在主仓库旁边的 `<repo>.worktrees/`、`.worktree-<repo>/` 或 `.worktrees/` 下。`list` 时发现注册路径
-  不在根目录下，提示可用 `git worktree move <旧路径> <新路径>` 迁过去（移动前确认没有会话正在用它），迁完删掉空的旧目录。
+  不在根目录下，提示可用 `git worktree move <旧路径> <新路径>` 迁过去，迁完删掉空的旧目录。迁移时注意：
+  - 先确认没有会话正在用它；`move` 不会建上级目录，先 `mkdir -p`。
+  - 含 submodule 的 worktree `move` 会拒绝，改用 `mv` 后 `git worktree repair <新路径>`。
+  - `.venv/bin` 里的脚本 shebang 写死了旧绝对路径，迁完替换掉或重建 venv；direnv 要重新 `direnv allow`。
 - 删除主仓库前先 `git worktree remove` 掉它的 worktree，否则会留下孤儿目录。
 - 依赖 bash；Windows 需 Git Bash / WSL。
