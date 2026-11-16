@@ -77,7 +77,7 @@ Skills installed from the plugin marketplace update with the plugin.
 | Skill | What it does | Example |
 |---|---|---|
 | `git-commit` | Reads the diff and writes a Conventional Commits message that follows the project's commitlint config (emoji by default when there is none); suggests splitting mixed changes | `/git-commit --all` |
-| `git-worktree` | Creates, lists and removes worktrees under `<repo>.worktrees/` next to the repo, optionally carrying over uncommitted changes | `/git-worktree add feature-ui` |
+| `git-worktree` | Creates, lists and removes worktrees under a central `~/worktrees/<host>/<owner>/<repo>/`, optionally carrying over uncommitted changes | `/git-worktree add feature-ui` |
 | `git-rollback` | Rolls a branch back to an earlier version: checks for uncommitted changes, makes a backup branch, previews, then runs reset or revert (merge-safe) | `/git-rollback --branch dev` |
 | `git-clean-branches` | Removes merged (including squash / rebase merged) or stale branches; skips worktree-checked-out branches and never deletes on `upstream` | `/git-clean-branches --dry-run` |
 | `gitmoji-commitlint-setup` | Adds commitlint and a husky commit-msg hook to a project, gitmoji style or plain Conventional Commits | "set up gitmoji commit rules for this project" |

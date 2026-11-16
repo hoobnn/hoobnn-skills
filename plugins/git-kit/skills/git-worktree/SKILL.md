@@ -1,7 +1,7 @@
 ---
 name: git-worktree
-description: 管理 Git worktree：在主仓库平级的 <仓库名>.worktrees/<分支>/ 下创建、列出、删除，可把未提交改动或 stash 迁过去。当用户说「开个 worktree」「新开一个分支目录并行做」「把这些改动挪到另一个 worktree」「清理 worktree」时使用。
-allowed-tools: Read(**), Bash(git worktree:*), Bash(git branch:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git stash:*), Bash(cp:*), Bash(which:*), Bash(command:*), Bash(basename:*), Bash(dirname:*), Bash(pwd)
+description: 管理 Git worktree：统一建在 ~/worktrees/<host>/<owner>/<repo>/<分支>/ 下（根目录可用 git config worktree.root 改），创建、列出、删除，可把未提交改动或 stash 迁过去。当用户说「开个 worktree」「新开一个分支目录并行做」「把这些改动挪到另一个 worktree」「清理 worktree」时使用。
+allowed-tools: Read(**), Bash(git worktree:*), Bash(git branch:*), Bash(git remote:*), Bash(git config:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git stash:*), Bash(cp:*), Bash(which:*), Bash(command:*), Bash(basename:*), Bash(dirname:*), Bash(pwd)
 argument-hint: '<add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [--guess-remote] [--detach] [--no-checkout] [--lock] [--from <source-path>] [--stash]'
 # examples:
 #   - /git-worktree add feature-ui                     # 从 main/master 创建新分支 'feature-ui'
@@ -12,21 +12,22 @@ argument-hint: '<add|list|remove|prune|migrate> [path] [-b <branch>] [--track] [
 
 # Git Worktree
 
-在主仓库平级的 `<repo>.worktrees/<path>` 下管理 worktree，`<repo>` 为主仓库目录名。直接执行并给简洁结果。
+所有仓库的 worktree 集中放在一个根目录下，按远程地址分层（同 ghq / gwq 的布局），不放在仓库内，也不放在仓库旁边。
+直接执行并给简洁结果。
 
 ```
-parent-directory/
-├── your-project/             # 主项目
-└── your-project.worktrees/   # 与项目平级，按仓库名区分，ls 时紧挨主项目
-    ├── feature-ui/
-    └── hotfix/
+~/worktrees/                          # 根目录：git config worktree.root，未设置时为 ~/worktrees
+├── github.com/hoobnn/hoobnn-skills/  # 来自 origin 地址，不同 owner 的同名仓库不会撞
+│   ├── feature-ui/
+│   └── fix-login/                    # 分支 fix/login
+└── local/scratch/                    # 没有 origin 的仓库：local/<主仓库目录名>
 ```
 
 ## Options
 
 | 选项 | 说明 |
 |---|---|
-| `add <path>` | 在 `<repo>.worktrees/<path>` 创建 worktree。未指定 `-b` 时用 `<path>` 作新分支名，新分支从 main / master 创建 |
+| `add <path>` | 在「路径计算」得出的目录创建 worktree。未指定 `-b` 时用 `<path>` 作新分支名，新分支从 main / master 创建 |
 | `list` / `remove <path>` / `prune` | 列出 / 删除（同时清理 git 引用）/ 清理失效记录 |
 | `migrate <target>` | 把未提交改动（`--from <source>`）或 stash（`--stash`）迁到目标 worktree |
 | `-b <branch>` | 指定新分支名 |
@@ -36,13 +37,24 @@ parent-directory/
 
 ## 路径计算
 
-`add` 可能在主仓库里执行，也可能在某个已有 worktree 里执行。先用 `git rev-parse --git-common-dir`
-与 `--show-toplevel` 比较：两者不等于 `<toplevel>/.git` 说明当前在 worktree 里，主仓库路径取
-`dirname <git-common-dir>`。`<repo>` 取 `basename <main-repo>`（不是当前 worktree 目录名）。目标路径始终用**绝对路径**
-`<main-repo>.worktrees/<path>`，否则在 worktree 内用相对路径或当前目录名，会错落到 `<repo>.worktrees/<当前 worktree 名>.worktrees/` 下。
-`<path>` 含 `/`（如 `fix/login`）时把 `/` 换成 `-` 作目录名，分支名保持原样。
+目标路径只用下面这段计算，`NAME` 是 `<path>` 参数。它在主仓库或任一 worktree 里执行结果都一样（主仓库取自
+`--git-common-dir`），`/` 会换成 `-` 作目录名，分支名保持原样：
 
-创建前检查目录不存在、分支未被其他 worktree 检出。
+```bash
+main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+root=$(git config --get worktree.root || echo "$HOME/worktrees")
+url=$(git remote get-url origin 2>/dev/null)
+if [ -n "$url" ]; then
+  key=$(printf '%s' "$url" | sed -E 's#^[a-z+]+://##; s#^[^@/]+@##; s#:([0-9]+/)?#/#; s#\.git/?$##; s#/$##')
+else
+  key="local/$(basename "$main")"
+fi
+echo "$root/$key/$(printf '%s' "$NAME" | tr / -)"
+```
+
+- 根目录要改就 `git config --global worktree.root <绝对路径>`，不要改这段里的默认值；单个仓库可以不带 `--global` 单独设。
+- `git worktree add` 会自动创建上级目录。
+- 创建前检查目录不存在、分支未被其他 worktree 检出。
 
 ## 环境文件
 
@@ -56,7 +68,7 @@ parent-directory/
 
 - Bash 里 `cd` 切不动：每次调用结束后 harness 会把 cwd 重置回原目录。
 - 用 harness 内置工具 `EnterWorktree(path: "<绝对路径>")`。它的 `path` 参数支持进入一个**已注册到当前仓库**
-  的现有 worktree；`<repo>.worktrees/<path>` 是用 `git worktree add` 注册的，出现在 `git worktree list` 里，
+  的现有 worktree；这里的目录是用 `git worktree add` 注册的，出现在 `git worktree list` 里，
   所以能通过校验。`EnterWorktree` / `ExitWorktree` 是会话级工具，不是斜杠命令，所以不写进本 skill 的 `allowed-tools`。
 - 切换后 `pwd && git branch --show-current` 验证。
 - 因为是用 `path` 进入已存在的 worktree（不是用 `name` 新建），`ExitWorktree(action: "keep")` 返回原目录时不会删掉它。
@@ -71,7 +83,7 @@ parent-directory/
 ## Notes
 
 - worktree 共享 `.git`，不额外占仓库空间。
-- 旧版本把 worktree 建在 `../.worktree-<repo>/`。`list` 时若发现注册路径在这种目录下，提示可用
-  `git worktree move <旧路径> <repo>.worktrees/<path>` 迁到新位置（移动前确认没有会话正在用它）。
+- 旧版本把 worktree 建在主仓库旁边的 `<repo>.worktrees/`、`.worktree-<repo>/` 或 `.worktrees/` 下。`list` 时发现注册路径
+  不在根目录下，提示可用 `git worktree move <旧路径> <新路径>` 迁过去（移动前确认没有会话正在用它），迁完删掉空的旧目录。
 - 删除主仓库前先 `git worktree remove` 掉它的 worktree，否则会留下孤儿目录。
 - 依赖 bash；Windows 需 Git Bash / WSL。
